@@ -1,3 +1,5 @@
+# 最基本的BPE算法逻辑实现
+
 from collections import Counter
 
 def init_vocab():
@@ -19,16 +21,21 @@ def get_stat(word_list: dict):
     pair_dict = Counter()
     for word, freq in word_list.items():
         for i, char in enumerate(word):
-            if i > 0:
+            if i < len(word) - 1:
                 # 这里用元组对来作为字典的键，可以保存是哪两个元素合并得来的，用于最后生成merges合并对信息；
                 # 如果用两个串直接拼起来，会丢失合并前信息，比如low是lo+w还是l+ow，导致无法生成正确的merges
-                pair_dict[(word[i - 1], word[i])] += freq     
+                pair_dict[(word[i], word[i + 1])] += freq     
 
     return pair_dict
     
 def merge(word_freqs:dict, top_pair:tuple):
     p0, p1 = top_pair
     new_word_freqs = {}
+    # 优化方向: 
+    # The naïve implementation of BPE training in the stylized example above is slow because for every merge,
+    # it iterates over all byte pairs to identify the most frequent pair. However, the only pair counts that change
+    # after each merge are those that overlap with the merged pair
+    # 只有与合并的pair重叠的那些pair频率才会发生改变，不需要对每个pair都遍历一遍
     for word, freq in word_freqs.items():
         new_word = []
         # 因为合并后索引会发生改变，涉及指针跳跃操作，下面的合并操作使用while来灵活控制指针
@@ -61,7 +68,7 @@ def BPE(text:str):
     # 建立核心数据结构word_freqs,记录了当前的合并进度和每个词的词频(词频value不变，合并或者说分词状态key在变)
     word_freqs = Counter(word_list)
 
-    for iter in range(5):
+    for iter in range(6):
         # 统计当前合并状态下，每个pair的频率
         pair_dict = get_stat(word_freqs)
         # 获取最高频pair，同频率按字典序
@@ -72,7 +79,8 @@ def BPE(text:str):
         vocab[next_vocab_id] = top_pair[0] + top_pair[1]
         next_vocab_id += 1
         pass
-    pass
+    
+    return vocab, merges
 
 
 
