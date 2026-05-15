@@ -1,4 +1,4 @@
-# 最基本的BPE算法逻辑实现
+# 最基本的BPE训练算法逻辑实现
 
 from collections import Counter
 
