@@ -57,21 +57,22 @@ def BPE(text:str):
     merges = []
     vocab = init_vocab()
     next_vocab_id = len(vocab)
-
     word_list = pre_tokenization(text)
     # 建立核心数据结构word_freqs,记录了当前的合并进度和每个词的词频(词频value不变，合并或者说分词状态key在变)
     word_freqs = Counter(word_list)
-    # 统计当前合并状态下，每个pair的频率
-    pair_dict = get_stat(word_freqs)
-    # 获取最高频pair，同频率按字典序
-    top_pair = max(pair_dict.keys(), key=lambda x: (pair_dict[x], x))  # max会按照每个元素进入key的返回结果来比大小
-    # 在word_freqs中执行合并
-    word_freqs = merge(word_freqs, top_pair)
-    merges.append(top_pair)
-    vocab[next_vocab_id] = top_pair[0] + top_pair[1]
 
-
-
+    for iter in range(5):
+        # 统计当前合并状态下，每个pair的频率
+        pair_dict = get_stat(word_freqs)
+        # 获取最高频pair，同频率按字典序
+        top_pair = max(pair_dict.keys(), key=lambda x: (pair_dict[x], x))  # max会按照每个元素进入key的返回结果来比大小
+        # 在word_freqs中执行合并
+        word_freqs = merge(word_freqs, top_pair)
+        merges.append(top_pair)
+        vocab[next_vocab_id] = top_pair[0] + top_pair[1]
+        next_vocab_id += 1
+        pass
+    pass
 
 
 
