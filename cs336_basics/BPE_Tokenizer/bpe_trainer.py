@@ -9,7 +9,7 @@ def _init_vocab(special_tokens):
         next_vocab_id += 1
     return vocab, next_vocab_id
 
-def _pre_tokentize(input_path: str, special_tokens: list[str]):
+def _pre_tokenize(input_path: str, special_tokens: list[str]):
     # GPT-2的预分词正则
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     compiled_PAT = re.compile(PAT)
@@ -27,7 +27,7 @@ def _pre_tokentize(input_path: str, special_tokens: list[str]):
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     vocab, next_vocab_id = _init_vocab(special_tokens)
-    word_freqs = _pre_tokentize(input_path, special_tokens)
+    word_freqs = _pre_tokenize(input_path, special_tokens)
 
 
 
