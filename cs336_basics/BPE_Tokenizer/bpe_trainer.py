@@ -37,12 +37,23 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]):
 
     return word_freqs
 
-def _merge(word_freqs, top_pair):
+# 只在循环开始前调用一次，全表扫描word_freqs，初始化pair_freqs  后续在pair_freqs上增量更新
+def _get_stats(word_freqs):
+    pass
+
+# 合并以及pair_freqs的增量更新逻辑
+def _merge(word_freqs, pair_freqs):
     pass
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     vocab, next_vocab_id = _init_vocab(special_tokens)
     word_freqs = _pre_tokenize(input_path, special_tokens)
+    # 这里定义局部增量更新的pair_freqs，不用重复统计不受影响的pair
+    pair_freqs = _get_stats(word_freqs)
+
+    # for 训练循环
+    pair_freqs = _merge(word_freqs, pair_freqs)
+
     pass
 
 
