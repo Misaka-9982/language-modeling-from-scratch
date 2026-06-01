@@ -70,6 +70,8 @@ def BPE(text:str):
 
     for iter in range(6):
         # 统计当前合并状态下，每个pair的频率
+        # 这种每轮都重新统计pair_dict的方法很低效，因为大量并未受到合并影响的pair也得全部重新统计，存在大量重复计算
+        # 后续优化算法可以对pair_dict使用增量更新，只修改受影响的pair附近的值，不用每次都全局重新统计
         pair_dict = get_stat(word_freqs)
         # 获取最高频pair，同频率按字典序
         top_pair = max(pair_dict.keys(), key=lambda x: (pair_dict[x], x))  # max会按照每个元素进入key的返回结果来比大小
