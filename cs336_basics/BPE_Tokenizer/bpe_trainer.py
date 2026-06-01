@@ -53,6 +53,23 @@ def _get_stats(word_freqs):
 
 # 合并以及pair_freqs的增量更新逻辑
 def _merge(word_freqs, pair_freqs):
+    top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], k))
+    new_word_freqs = {}
+
+    # 执行合并，更新word_freqs
+    for word, freq in word_freqs.items():
+        new_word = []
+        i = 0
+        while i < len(word):  # while不能直接写成i < len(word) - 1，否则会漏掉单独最后一个的情况
+            if i < len(word) - 1 and word[i] == top_pair[0] and word[i + 1] == top_pair[1]:  # 第一个条件防止i+1越界
+                new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
+                i += 2
+            else:
+                new_word.append(word[i])
+                i += 1
+        new_word_freqs[tuple(new_word)] = freq
+    
+    # 更新pair_freqs
     pass
 
 
@@ -63,7 +80,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     pair_freqs = _get_stats(word_freqs)
 
     # for 训练循环
-    pair_freqs = _merge(word_freqs, pair_freqs)
+    word_freqs, pair_freqs = _merge(word_freqs, pair_freqs)
 
     pass
 
