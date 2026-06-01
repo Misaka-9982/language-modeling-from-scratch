@@ -9,6 +9,7 @@ def _init_vocab(special_tokens):
         next_vocab_id += 1
     return vocab, next_vocab_id
 
+
 # 先去除special_tokens，切分输入流，然后再进行pretokenization
 def _pre_tokenize(input_path: str, special_tokens: list[str]):
     # 全局词频分词状态表-原始文本的化身，只保留预分词切分后的结果与其出现的频率
@@ -37,13 +38,23 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]):
 
     return word_freqs
 
+
 # 只在循环开始前调用一次，全表扫描word_freqs，初始化pair_freqs  后续在pair_freqs上增量更新
 def _get_stats(word_freqs):
-    pass
+    pair_freqs = Counter()
+    for word, freq in word_freqs.items():
+        for i, byte in enumerate(word):
+            if byte == word[-1]:
+                continue
+            pair_freqs[(word[i], word[i + 1])] += freq
+
+    return pair_freqs
+
 
 # 合并以及pair_freqs的增量更新逻辑
 def _merge(word_freqs, pair_freqs):
     pass
+
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     vocab, next_vocab_id = _init_vocab(special_tokens)
