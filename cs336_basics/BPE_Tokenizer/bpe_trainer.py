@@ -53,8 +53,15 @@ def _get_stats(word_freqs):
 def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
     top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], k))
     new_id = len(vocab)
-    vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]
+    vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]  # 生成新token
+    merges.append(top_pair)
     new_word_freqs = {}
+
+    # 内部函数，减少pair的频率，频率为空时从字典中删除
+    def _decrease_pair(pair, freq):
+        pair_freqs[pair] -= freq
+        if pair_freqs[pair] <= 0:
+            del pair_freqs[pair]
 
     # 执行合并，更新word_freqs
     for word, freq in word_freqs.items():
@@ -63,15 +70,25 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
         while i < len(word):  # while不能直接写成i < len(word) - 1，否则会漏掉单独最后一个的情况
             if i < len(word) - 1 and word[i] == top_pair[0] and word[i + 1] == top_pair[1]:  # 第一个条件防止i+1越界
                 # new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
+                # 合并 生成新token
                 new_word.append(new_id)  # 字节级实现这里要填入合并后分配的新ID，而不是求和
+                
+                # 旧pair消失，减少频率；新pair出现，增加频率
+                # print(pair_freqs[top_pair])
+                _decrease_pair(top_pair, freq)
+                if i > 0:
+                    _decrease_pair((word[i - 1], word[i]), freq)
+                    pair_freqs[(word[i - 1], new_id)] += freq
+                if i < len(word) - 2:
+                    _decrease_pair((word[i + 1], word[i + 2]), freq)
+                    pair_freqs[(new_id, word[i + 2])] += freq
                 i += 2
             else:
                 new_word.append(word[i])
                 i += 1
         new_word_freqs[tuple(new_word)] = freq
+    return word_freqs, pair_freqs, vocab, merges
     
-    # 更新pair_freqs
-    pass
 
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
