@@ -55,13 +55,19 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
     new_id = len(vocab)
     vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]  # 生成新token
     merges.append(top_pair)
-    new_word_freqs = {}
+    new_word_freqs = Counter()
 
     # 内部函数，减少pair的频率，频率为空时从字典中删除
-    def _decrease_pair(pair, freq):
-        pair_freqs[pair] -= freq
-        if pair_freqs[pair] <= 0:
-            del pair_freqs[pair]
+    def _decrease_pair(word, freq):
+        for j in range(len(word) - 1):
+            pair_freqs[(word[j], word[j + 1])] -= freq
+            if pair_freqs[(word[j], word[j + 1])] <= 0:
+                del pair_freqs[(word[j], word[j + 1])]
+    
+    def _increase_pair(new_word, freq):
+        for j in range(len(new_word) - 1):
+            pair_freqs[(new_word[j], new_word[j + 1])] += freq
+
 
     # 执行合并，更新word_freqs
     for word, freq in word_freqs.items():
@@ -72,21 +78,19 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
                 # new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
                 # 合并 生成新token
                 new_word.append(new_id)  # 字节级实现这里要填入合并后分配的新ID，而不是求和
-                
-                # 旧pair消失，减少频率；新pair出现，增加频率
                 # print(pair_freqs[top_pair])
-                _decrease_pair(top_pair, freq)
-                if i > 0:
-                    _decrease_pair((word[i - 1], word[i]), freq)
-                    pair_freqs[(word[i - 1], new_id)] += freq
-                if i < len(word) - 2:
-                    _decrease_pair((word[i + 1], word[i + 2]), freq)
-                    pair_freqs[(new_id, word[i + 2])] += freq
                 i += 2
             else:
                 new_word.append(word[i])
                 i += 1
-        new_word_freqs[tuple(new_word)] = freq
+        if len(new_word) == len(word):  # 如果没有发生合并就直接跳过
+            new_word_freqs[word] += freq
+            continue
+        # 更新pair_freqs的逻辑
+        # 减旧词中的pair频率，增加新词中的pair频率
+        _decrease_pair(word, freq)
+        _increase_pair(new_word, freq)
+        new_word_freqs[tuple(new_word)] += freq
     return new_word_freqs, pair_freqs, vocab, merges
     
 
