@@ -3,11 +3,9 @@ import regex as re
 
 def _init_vocab(special_tokens):
     vocab = {i: bytes([i]) for i in range(256)}
-    next_vocab_id = 256
     for special in special_tokens:
-        vocab[next_vocab_id] = special.encode('utf-8')
-        next_vocab_id += 1
-    return vocab, next_vocab_id
+        vocab[len(vocab)] = special.encode('utf-8')
+    return vocab
 
 
 # 先去除special_tokens，切分输入流，然后再进行pretokenization
@@ -52,8 +50,10 @@ def _get_stats(word_freqs):
 
 
 # 合并以及pair_freqs的增量更新逻辑
-def _merge(word_freqs, pair_freqs):
+def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
     top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], k))
+    new_id = len(vocab)
+    vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]
     new_word_freqs = {}
 
     # 执行合并，更新word_freqs
@@ -62,7 +62,8 @@ def _merge(word_freqs, pair_freqs):
         i = 0
         while i < len(word):  # while不能直接写成i < len(word) - 1，否则会漏掉单独最后一个的情况
             if i < len(word) - 1 and word[i] == top_pair[0] and word[i + 1] == top_pair[1]:  # 第一个条件防止i+1越界
-                new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
+                # new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
+                new_word.append(new_id)  # 字节级实现这里要填入合并后分配的新ID，而不是求和
                 i += 2
             else:
                 new_word.append(word[i])
@@ -74,13 +75,14 @@ def _merge(word_freqs, pair_freqs):
 
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
-    vocab, next_vocab_id = _init_vocab(special_tokens)
+    vocab = _init_vocab(special_tokens)
     word_freqs = _pre_tokenize(input_path, special_tokens)
     # 这里定义局部增量更新的pair_freqs，不用重复统计不受影响的pair
     pair_freqs = _get_stats(word_freqs)
+    merges = []
 
     # for 训练循环
-    word_freqs, pair_freqs = _merge(word_freqs, pair_freqs)
+    word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
     pass
 
