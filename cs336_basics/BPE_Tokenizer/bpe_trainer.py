@@ -87,7 +87,7 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
                 new_word.append(word[i])
                 i += 1
         new_word_freqs[tuple(new_word)] = freq
-    return word_freqs, pair_freqs, vocab, merges
+    return new_word_freqs, pair_freqs, vocab, merges
     
 
 
@@ -99,11 +99,12 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     merges = []
 
     # for 训练循环
-    word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
+    for _ in range(vocab_size):
+        word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
-    pass
+    return vocab, merges
 
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=0, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=10, special_tokens=['<|endoftext|>'])
