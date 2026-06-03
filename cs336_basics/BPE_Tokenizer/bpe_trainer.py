@@ -54,7 +54,7 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
     top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], k))
     new_id = len(vocab)
     vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]  # 生成新token
-    merges.append(top_pair)
+    merges.append((vocab[top_pair[0]], vocab[top_pair[1]]))
     new_word_freqs = Counter()
 
     # 内部函数，减少pair的频率，频率为空时从字典中删除
