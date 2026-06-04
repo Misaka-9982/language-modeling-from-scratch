@@ -23,14 +23,23 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
     pre_tokenize_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
 
+    # 分块流式读取
+    CHUNK_CHARS = 10000000  # 一次读取的字符数
+
     with open(input_path, 'r', encoding='utf-8') as f:
-        # 逐行流式读取文件内容
-        for line in f:
+        while True:
+            # 逐块流式读取文件内容
+            chunk_text = f.read(CHUNK_CHARS)
+            if not chunk_text:
+                break
+            chunk_text += f.readline()  # 补足一行，防止切断special_token
+
             # 先去除special_tokens并分割
             if rm_special_tokens_PAT:
-                splited_chunks = re.split(rm_special_tokens_PAT, line)
+                splited_chunks = re.split(rm_special_tokens_PAT, chunk_text)
             else:
-                splited_chunks = [line]
+                splited_chunks = [chunk_text]
+
             for chunk in splited_chunks:
                 if chunk:
                     for pretoken in re.finditer(pre_tokenize_PAT, chunk):
@@ -114,4 +123,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=[])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=['<|endoftext|>'])
