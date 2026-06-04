@@ -27,7 +27,10 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
         # 逐行流式读取文件内容
         for line in f:
             # 先去除special_tokens并分割
-            splited_chunks = re.split(rm_special_tokens_PAT, line)
+            if rm_special_tokens_PAT:
+                splited_chunks = re.split(rm_special_tokens_PAT, line)
+            else:
+                splited_chunks = [line]
             for chunk in splited_chunks:
                 if chunk:
                     for pretoken in re.finditer(pre_tokenize_PAT, chunk):
@@ -111,4 +114,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=[])
