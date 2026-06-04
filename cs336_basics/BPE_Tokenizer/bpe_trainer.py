@@ -2,6 +2,8 @@ from collections import Counter
 import regex as re
 from tqdm import tqdm
 import os
+import pickle
+from pathlib import Path
 
 def _init_vocab(special_tokens):
     vocab = {i: bytes([i]) for i in range(256)}
@@ -128,9 +130,14 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     for _ in tqdm(range(vocab_size - len(vocab))):
         word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
+    pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
+    with open(pkl_file_name, "wb") as f:
+        pickle.dump({"vocab": vocab, "merges": merges}, f)
+    print(f"已保存到{pkl_file_name}")
+
     return vocab, merges
 
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-train.txt', vocab_size=10000, special_tokens=['<|endoftext|>'])
