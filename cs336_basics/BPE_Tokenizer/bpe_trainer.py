@@ -103,7 +103,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     merges = []
 
     # for 训练循环
-    for _ in range(vocab_size):
+    for _ in range(vocab_size - len(vocab)):
         word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
     return vocab, merges
@@ -111,4 +111,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=10, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=280, special_tokens=['<|endoftext|>'])
