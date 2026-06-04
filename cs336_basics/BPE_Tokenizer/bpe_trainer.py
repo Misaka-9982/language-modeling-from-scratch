@@ -9,7 +9,7 @@ def _init_vocab(special_tokens):
 
 
 # 先去除special_tokens，切分输入流，然后再进行pretokenization
-def _pre_tokenize(input_path: str, special_tokens: list[str]):
+def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,...], int]:
     # 全局词频分词状态表-原始文本的化身，只保留预分词切分后的结果与其出现的频率
     # 也就是一个元组内是一个预分词的token，然后元组内的元素表明了实际的合并情况
     # eg: ('t', 'o', 'k', 'e', 'n'): 10
@@ -41,9 +41,9 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]):
 def _get_stats(word_freqs):
     pair_freqs = Counter()
     for word, freq in word_freqs.items():
-        for i, byte in enumerate(word):
-            if byte == word[-1]:
-                continue
+        for i in range(len(word) - 1):
+            # if byte == word[-1]:  之前这个条件会导致严重bug，比如runner，第一个r和最后一个r相同，导致直接漏掉pair
+            # 直接在前面的for循环控制上界是最好的
             pair_freqs[(word[i], word[i + 1])] += freq
 
     return pair_freqs
