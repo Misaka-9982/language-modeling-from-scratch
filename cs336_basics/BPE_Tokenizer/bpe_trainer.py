@@ -51,7 +51,7 @@ def _get_stats(word_freqs):
 
 # 合并以及pair_freqs的增量更新逻辑
 def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
-    top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], k))
+    top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], (vocab[k[0]], vocab[k[1]])))
     new_id = len(vocab)
     vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]  # 生成新token
     merges.append((vocab[top_pair[0]], vocab[top_pair[1]]))
