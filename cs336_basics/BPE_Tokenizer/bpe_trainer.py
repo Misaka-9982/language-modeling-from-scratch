@@ -1,5 +1,7 @@
 from collections import Counter
 import regex as re
+from tqdm import tqdm
+import os
 
 def _init_vocab(special_tokens):
     vocab = {i: bytes([i]) for i in range(256)}
@@ -13,6 +15,7 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
     # 全局词频分词状态表-原始文本的化身，只保留预分词切分后的结果与其出现的频率
     # 也就是一个元组内是一个预分词的token，然后元组内的元素表明了实际的合并情况
     # eg: ('t', 'o', 'k', 'e', 'n'): 10
+    print("正在预分词...")
     word_freqs = Counter()
 
     # 把special_tokens转义成可以作为正则pattern的形式  A | B | C
@@ -24,15 +27,18 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
     pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
 
     # 分块流式读取
+    file_size = os.path.getsize(input_path) 
     CHUNK_CHARS = 10000000  # 一次读取的字符数
 
-    with open(input_path, 'r', encoding='utf-8') as f:
+    with open(input_path, 'r', encoding='utf-8') as f, tqdm(total=file_size, unit='B', unit_scale=True) as pbar:
         while True:
             # 逐块流式读取文件内容
+            pos_before = f.tell()  # 当前文件指针位置
             chunk_text = f.read(CHUNK_CHARS)
             if not chunk_text:
                 break
             chunk_text += f.readline()  # 补足一行，防止切断special_token
+            pos_after = f.tell()  # 读取后的文件指针位置
 
             # 先去除special_tokens并分割
             if rm_special_tokens_PAT:
@@ -45,12 +51,15 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
                     for pretoken in re.finditer(pre_tokenize_PAT, chunk):
                         # group()把Match对象转成str，然后再转utf-8的字节串，tuple打散成0-255的整数(字节)序列
                         word_freqs[tuple(pretoken.group().encode('utf-8'))] += 1
+            
+            pbar.update(pos_after - pos_before)
 
     return word_freqs
 
 
 # 只在循环开始前调用一次，全表扫描word_freqs，初始化pair_freqs  后续在pair_freqs上增量更新
 def _get_stats(word_freqs):
+    print("正在统计全局字节对频率...")
     pair_freqs = Counter()
     for word, freq in word_freqs.items():
         for i in range(len(word) - 1):
@@ -115,7 +124,8 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     merges = []
 
     # for 训练循环
-    for _ in range(vocab_size - len(vocab)):
+    print("正在开始合并...")
+    for _ in tqdm(range(vocab_size - len(vocab))):
         word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
     return vocab, merges
