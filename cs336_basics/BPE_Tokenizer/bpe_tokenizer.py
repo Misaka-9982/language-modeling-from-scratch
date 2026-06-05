@@ -10,6 +10,10 @@ class Tokenizer:
         self.merges_rank = {pair: idx for idx, pair in enumerate(merges)}  # merges优先级字典，pair: priority
         self.special_tokens = special_tokens
 
+        # GPT-2的预分词正则
+        pre_tokenize_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        self.pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
+
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath:str, special_tokens: list[str] | None = None):
@@ -20,10 +24,6 @@ class Tokenizer:
 
 
     def encode(self, text: str) -> list[int]:
-        # GPT-2的预分词正则
-        pre_tokenize_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-        pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
-
         # 内部函数，获取当前pretoken中优先级最高的pair
         def get_top_pair(pretoken: list[bytes]):
             pairs = []
@@ -52,7 +52,7 @@ class Tokenizer:
                     i += 1
             return new_token_list
 
-        for pretoken in re.finditer(pre_tokenize_PAT, text):
+        for pretoken in re.finditer(self.pre_tokenize_PAT, text):
             raw_bytes = pretoken.group().encode('utf-8')
             token_list = [bytes([b]) for b in raw_bytes]
             while True:
