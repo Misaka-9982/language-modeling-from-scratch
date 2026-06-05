@@ -17,7 +17,7 @@ class Tokenizer:
         # special_token
         if self.special_tokens is not None:
             escaped_special_tokens = [re.escape(token) for token in self.special_tokens]
-            self.rm_special_tokens_PAT = "|".join(escaped_special_tokens)
+            self.rm_special_tokens_PAT = f"({'|'.join(escaped_special_tokens)})"  # 加上圆括号变成捕获组，re.split的时候保留special_toknes
         else:
             self.rm_special_tokens_PAT = None
 
@@ -67,7 +67,16 @@ class Tokenizer:
 
         final_id_seq = []
         for chunk in splited_text:
-            if chunk:
+            # 跳过空串
+            if not chunk:
+                continue
+
+            # special_tokens直接查ID，不经过正则
+            if self.special_tokens and chunk in self.special_tokens:
+                final_id_seq.append(self.reversed_vocab[chunk.encode('utf-8')])
+
+            # 普通文本处理
+            else:
                 for pretoken in re.finditer(self.pre_tokenize_PAT, chunk):
                     raw_bytes = pretoken.group().encode('utf-8')
                     token_list = [bytes([b]) for b in raw_bytes]
@@ -93,6 +102,6 @@ class Tokenizer:
     
 
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_1k_TinyStoriesV2-GPT4-valid.pkl', merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_1k_TinyStoriesV2-GPT4-valid.pkl')
-    tokenizer.encode('Hello World tokenizer! 你好，分词器！')
+    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl')
+    tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     pass
