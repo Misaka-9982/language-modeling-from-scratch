@@ -52,6 +52,7 @@ class Tokenizer:
                     i += 1
             return new_token_list
 
+        final_id_seq = []
         for pretoken in re.finditer(self.pre_tokenize_PAT, text):
             raw_bytes = pretoken.group().encode('utf-8')
             token_list = [bytes([b]) for b in raw_bytes]
@@ -60,7 +61,12 @@ class Tokenizer:
                 if not top_pair:
                     break
                 token_list = merge(token_list, top_pair)
-
+            
+            # 合并完成后转ID
+            for merged_token in token_list:
+                final_id_seq.append(self.reversed_vocab[merged_token])
+        
+        return final_id_seq
 
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
