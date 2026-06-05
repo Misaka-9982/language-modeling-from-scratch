@@ -35,7 +35,7 @@ class Tokenizer:
             top_rank = float('inf')
             for pair in pairs:
                 rank = self.merges_rank.get(pair)
-                if rank and rank < top_rank:
+                if rank != None and rank < top_rank:  # 这里不能用if rank，rank最高是0，会直接跳过
                     top_rank = rank
                     top_pair = pair
             return top_pair
