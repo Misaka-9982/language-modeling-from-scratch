@@ -14,6 +14,13 @@ class Tokenizer:
         pre_tokenize_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         self.pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
 
+        # special_token
+        if self.special_tokens is not None:
+            escaped_special_tokens = [re.escape(token) for token in self.special_tokens]
+            self.rm_special_tokens_PAT = "|".join(escaped_special_tokens)
+        else:
+            self.rm_special_tokens_PAT = None
+
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath:str, special_tokens: list[str] | None = None):
@@ -52,19 +59,27 @@ class Tokenizer:
                     i += 1
             return new_token_list
 
+        # special_token处理
+        if self.rm_special_tokens_PAT:
+            splited_text = re.split(self.rm_special_tokens_PAT, text)
+        else:
+            splited_text = [text]
+
         final_id_seq = []
-        for pretoken in re.finditer(self.pre_tokenize_PAT, text):
-            raw_bytes = pretoken.group().encode('utf-8')
-            token_list = [bytes([b]) for b in raw_bytes]
-            while True:
-                top_pair = get_top_pair(token_list)
-                if not top_pair:
-                    break
-                token_list = merge(token_list, top_pair)
-            
-            # 合并完成后转ID
-            for merged_token in token_list:
-                final_id_seq.append(self.reversed_vocab[merged_token])
+        for chunk in splited_text:
+            if chunk:
+                for pretoken in re.finditer(self.pre_tokenize_PAT, chunk):
+                    raw_bytes = pretoken.group().encode('utf-8')
+                    token_list = [bytes([b]) for b in raw_bytes]
+                    while True:
+                        top_pair = get_top_pair(token_list)
+                        if not top_pair:
+                            break
+                        token_list = merge(token_list, top_pair)
+                    
+                    # 合并完成后转ID
+                    for merged_token in token_list:
+                        final_id_seq.append(self.reversed_vocab[merged_token])
         
         return final_id_seq
 
