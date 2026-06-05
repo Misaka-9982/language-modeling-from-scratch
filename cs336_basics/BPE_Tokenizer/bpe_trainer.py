@@ -63,7 +63,7 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
 def _get_stats(word_freqs):
     print("正在统计全局字节对频率...")
     pair_freqs = Counter()
-    for word, freq in word_freqs.items():
+    for word, freq in tqdm(word_freqs.items()):
         for i in range(len(word) - 1):
             # if byte == word[-1]:  之前这个条件会导致严重bug，比如runner，第一个r和最后一个r相同，导致直接漏掉pair
             # 直接在前面的for循环控制上界是最好的
@@ -140,4 +140,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-train.txt', vocab_size=10000, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/owt_train.txt', vocab_size=32000, special_tokens=[])
