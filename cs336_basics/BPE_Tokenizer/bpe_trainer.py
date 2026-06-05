@@ -130,14 +130,16 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     for _ in tqdm(range(vocab_size - len(vocab))):
         word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
 
-    pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
-    with open(pkl_file_name, "wb") as f:
-        pickle.dump({"vocab": vocab, "merges": merges}, f)
-    print(f"已保存到{pkl_file_name}")
+    vocab_pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_vocab_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
+    merges_pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_merges_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
+    with open(vocab_pkl_file_name, "wb") as f_vocab, open(merges_pkl_file_name, "wb") as f_merges:
+        pickle.dump(vocab, f_vocab)
+        pickle.dump(merges, f_merges)
+    print(f"已保存到: \n{vocab_pkl_file_name}, \n{merges_pkl_file_name}")
 
     return vocab, merges
 
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/owt_train.txt', vocab_size=32000, special_tokens=[])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=1000, special_tokens=[])
