@@ -73,7 +73,7 @@ class Tokenizer:
         else:
             splited_text = [text]
 
-        final_id_seq = []
+        final_ids = []
         for chunk in splited_text:
             # 跳过空串
             if not chunk:
@@ -81,7 +81,7 @@ class Tokenizer:
 
             # special_tokens直接查ID，不经过正则切分
             if self.special_tokens and chunk in self.special_tokens:
-                final_id_seq.append(self.reversed_vocab[chunk.encode('utf-8')])
+                final_ids.append(self.reversed_vocab[chunk.encode('utf-8')])
 
             # 普通文本处理
             else:
@@ -96,14 +96,21 @@ class Tokenizer:
                     
                     # 合并完成后转ID
                     for merged_token in token_list:
-                        final_id_seq.append(self.reversed_vocab[merged_token])
+                        final_ids.append(self.reversed_vocab[merged_token])
         
-        return final_id_seq
+        return final_ids
 
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        pass
+        for chunk in iterable:
+            if not chunk:
+                continue
 
+            chunk_ids = self.encode(chunk)
+
+            for token_id in chunk_ids:
+                yield token_id
+                
 
     def decode(self, ids: list[int]) -> str:
         pass
