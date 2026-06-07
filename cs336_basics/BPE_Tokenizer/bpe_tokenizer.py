@@ -17,6 +17,7 @@ class Tokenizer:
         # special_token正则  追加special_token到词表
         if self.special_tokens is not None:
             escaped_special_tokens = [re.escape(token) for token in self.special_tokens]
+            escaped_special_tokens.sort(reverse=True, key=lambda t: len(t))  # 让长的正则优先匹配，保证<|endoftext|><|endoftext|>连着，且单独的和二连均作为sp传入时，正确被切成一个token，而不是两个
             self.rm_special_tokens_PAT = f"({'|'.join(escaped_special_tokens)})"  # 加上圆括号变成捕获组，re.split的时候保留special_toknes
 
             for special in self.special_tokens:
@@ -121,7 +122,7 @@ class Tokenizer:
 if __name__ == "__main__":
     tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
                                      merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
-                                     special_tokens=['<|endoftext|>'])
+                                     special_tokens=['<|endoftext|>', '特殊token', '足够长的特殊token0123456789111'])
     encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     print(tokenizer.decode(encoded_text))
     
