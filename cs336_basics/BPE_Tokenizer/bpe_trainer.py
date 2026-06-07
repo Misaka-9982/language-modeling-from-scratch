@@ -5,12 +5,9 @@ import os
 import pickle
 from pathlib import Path
 
-def _init_vocab(special_tokens):
-    vocab = {i: bytes([i]) for i in range(256)}
-    for special in special_tokens:
-        vocab[len(vocab)] = special.encode('utf-8')
-    return vocab
-
+def _init_vocab():
+    return {i: bytes([i]) for i in range(256)}
+    
 
 # 先去除special_tokens，切分输入流，然后再进行pretokenization
 def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,...], int]:
@@ -119,7 +116,7 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
 
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
-    vocab = _init_vocab(special_tokens)
+    vocab = _init_vocab()
     word_freqs = _pre_tokenize(input_path, special_tokens)
     # 这里定义局部增量更新的pair_freqs，不用重复统计不受影响的pair
     pair_freqs = _get_stats(word_freqs)
@@ -127,8 +124,12 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
     # for 训练循环
     print("正在开始合并...")
-    for _ in tqdm(range(vocab_size - len(vocab))):
+    for _ in tqdm(range(vocab_size - len(vocab) - len(special_tokens))):
         word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
+
+    # 追加special_tokens到词表末尾
+    for special in special_tokens:
+        vocab[len(vocab)] = special.encode('utf-8')
 
     vocab_pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_vocab_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
     merges_pkl_file_name = f"./cs336_basics/BPE_Tokenizer/tokenizer_merges_{vocab_size//1000}k_{Path(input_path).stem}.pkl"
@@ -142,4 +143,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=1000, special_tokens=[])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=300, special_tokens=['<|endoftext|>'])
