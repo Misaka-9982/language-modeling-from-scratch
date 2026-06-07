@@ -110,15 +110,18 @@ class Tokenizer:
 
             for token_id in chunk_ids:
                 yield token_id
-                
+
 
     def decode(self, ids: list[int]) -> str:
-        pass
-    
+        bytes_list = [self.vocab[id] for id in ids]
+        bytes_tokens = b"".join(bytes_list)
+        return bytes_tokens.decode("utf-8", errors="replace")
+
 
 if __name__ == "__main__":
     tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
                                      merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
                                      special_tokens=['<|endoftext|>'])
-    tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
-    pass
+    encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
+    print(tokenizer.decode(encoded_text))
+    
