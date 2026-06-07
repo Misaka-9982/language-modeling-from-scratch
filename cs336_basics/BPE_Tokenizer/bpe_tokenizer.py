@@ -20,11 +20,12 @@ class Tokenizer:
             self.rm_special_tokens_PAT = f"({'|'.join(escaped_special_tokens)})"  # 加上圆括号变成捕获组，re.split的时候保留special_toknes
 
             for special in self.special_tokens:
-                new_id = len(self.vocab)
                 special_bytes = special.encode('utf-8')
-
-                self.vocab[new_id] = special_bytes
-                self.reversed_vocab[special_bytes] = new_id
+                # 防止重复追加
+                if special_bytes not in self.reversed_vocab:
+                    new_id = len(self.vocab)
+                    self.vocab[new_id] = special_bytes
+                    self.reversed_vocab[special_bytes] = new_id
         else:
             self.rm_special_tokens_PAT = None
 
@@ -109,6 +110,8 @@ class Tokenizer:
     
 
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl')
+    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
+                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
+                                     special_tokens=['<|endoftext|>'])
     tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     pass
