@@ -13,11 +13,18 @@ class Tokenizer:
         # GPT-2的预分词正则
         pre_tokenize_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         self.pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
-
-        # special_token
+        
+        # special_token正则  追加special_token到词表
         if self.special_tokens is not None:
             escaped_special_tokens = [re.escape(token) for token in self.special_tokens]
             self.rm_special_tokens_PAT = f"({'|'.join(escaped_special_tokens)})"  # 加上圆括号变成捕获组，re.split的时候保留special_toknes
+
+            for special in self.special_tokens:
+                new_id = len(self.vocab)
+                special_bytes = special.encode('utf-8')
+
+                self.vocab[new_id] = special_bytes
+                self.reversed_vocab[special_bytes] = new_id
         else:
             self.rm_special_tokens_PAT = None
 
@@ -71,7 +78,7 @@ class Tokenizer:
             if not chunk:
                 continue
 
-            # special_tokens直接查ID，不经过正则
+            # special_tokens直接查ID，不经过正则切分
             if self.special_tokens and chunk in self.special_tokens:
                 final_id_seq.append(self.reversed_vocab[chunk.encode('utf-8')])
 
