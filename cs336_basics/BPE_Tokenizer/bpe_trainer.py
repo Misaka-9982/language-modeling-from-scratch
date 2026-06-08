@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 import regex as re
 from tqdm import tqdm
 import os
@@ -57,7 +57,7 @@ def _pre_tokenize(input_path: str, special_tokens: list[str]) -> dict[tuple[int,
 
 
 # 只在循环开始前调用一次，全表扫描word_freqs，初始化pair_freqs  后续在pair_freqs上增量更新
-def _get_stats(word_freqs):
+def _get_stats(word_freqs, pair_to_words: dict[tuple[int, ...], set]):
     print("正在统计全局字节对频率...")
     pair_freqs = Counter()
     for word, freq in tqdm(word_freqs.items()):
@@ -65,17 +65,18 @@ def _get_stats(word_freqs):
             # if byte == word[-1]:  之前这个条件会导致严重bug，比如runner，第一个r和最后一个r相同，导致直接漏掉pair
             # 直接在前面的for循环控制上界是最好的
             pair_freqs[(word[i], word[i + 1])] += freq
+            pair_to_words[(word[i], word[i + 1])].add(word)
 
-    return pair_freqs
+    return pair_freqs, pair_to_words
 
 
 # 合并以及pair_freqs的增量更新逻辑
-def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
+def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list, pair_to_words: dict[tuple[int, ...], set]):
     top_pair = max(pair_freqs, key=lambda k: (pair_freqs[k], (vocab[k[0]], vocab[k[1]])))
     new_id = len(vocab)
     vocab[new_id] = vocab[top_pair[0]] + vocab[top_pair[1]]  # 生成新token
     merges.append((vocab[top_pair[0]], vocab[top_pair[1]]))
-    new_word_freqs = Counter()
+    # new_word_freqs = Counter()  倒排索引只修改需要修改的，不用遍历全部了
 
     # 内部函数，减少pair的频率，频率为空时从字典中删除
     def _decrease_pair(word, freq):
@@ -88,9 +89,14 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
         for j in range(len(new_word) - 1):
             pair_freqs[(new_word[j], new_word[j + 1])] += freq
 
-
-    # 执行合并，更新word_freqs
-    for word, freq in word_freqs.items():
+    # 利用倒排索引快速找到需要进行合并的词
+    affected_words = list(pair_to_words[top_pair])
+    for word in affected_words:
+        freq = word_freqs[word]
+        # 倒排索引里的词是惰性清理的，使用前检查一下词是否已失效
+        if word not in word_freqs:
+            continue
+        # 执行合并
         new_word = []
         i = 0
         while i < len(word):  # while不能直接写成i < len(word) - 1，否则会漏掉单独最后一个的情况
@@ -103,29 +109,56 @@ def _merge(word_freqs, pair_freqs, vocab:dict[int,bytes], merges:list):
             else:
                 new_word.append(word[i])
                 i += 1
-        if len(new_word) == len(word):  # 如果没有发生合并就直接跳过
-            new_word_freqs[word] += freq
-            continue
-        # 更新pair_freqs的逻辑
-        # 减旧词中的pair频率，增加新词中的pair频率
+        
+        del word_freqs[word]  # 删除旧词
+        word_freqs[tuple(new_word)] += freq
+        # new_word_freqs[tuple(new_word)] += freq
         _decrease_pair(word, freq)
         _increase_pair(new_word, freq)
-        new_word_freqs[tuple(new_word)] += freq
-    return new_word_freqs, pair_freqs, vocab, merges
+        # 把新pair加入pair_to_words
+        for i in range(len(new_word) - 1):
+            pair_to_words[(new_word[i], new_word[i + 1])].add(tuple(new_word))
+
+
+    # # 执行合并，更新word_freqs
+    # for word, freq in word_freqs.items():
+    #     new_word = []
+    #     i = 0
+    #     while i < len(word):  # while不能直接写成i < len(word) - 1，否则会漏掉单独最后一个的情况
+    #         if i < len(word) - 1 and word[i] == top_pair[0] and word[i + 1] == top_pair[1]:  # 第一个条件防止i+1越界
+    #             # new_word.append(word[i] + word[i + 1])  # bug: 字符级str合并的逻辑在字节级上不能照搬，会变成整数求和
+    #             # 合并 生成新token
+    #             new_word.append(new_id)  # 字节级实现这里要填入合并后分配的新ID，而不是求和
+    #             # print(pair_freqs[top_pair])
+    #             i += 2
+    #         else:
+    #             new_word.append(word[i])
+    #             i += 1
+    #     if len(new_word) == len(word):  # 如果没有发生合并就直接跳过
+    #         new_word_freqs[word] += freq
+    #         continue
+    #     # 更新pair_freqs的逻辑
+    #     # 减旧词中的pair频率，增加新词中的pair频率
+    #     _decrease_pair(word, freq)
+    #     _increase_pair(new_word, freq)
+    #     new_word_freqs[tuple(new_word)] += freq
+    return word_freqs, pair_freqs, vocab, merges, pair_to_words
     
 
 
 def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     vocab = _init_vocab()
     word_freqs = _pre_tokenize(input_path, special_tokens)
+    # 倒排索引  优化合并速度，避免每次合并都要遍历全词典，找需要修改的词
+    pair_to_words: dict[tuple[int, ...], set] = defaultdict(set)
     # 这里定义局部增量更新的pair_freqs，不用重复统计不受影响的pair
-    pair_freqs = _get_stats(word_freqs)
+    pair_freqs, pair_to_words = _get_stats(word_freqs, pair_to_words)
     merges = []
 
     # for 训练循环
     print("正在开始合并...")
     for _ in tqdm(range(vocab_size - len(vocab) - len(special_tokens))):
-        word_freqs, pair_freqs, vocab, merges = _merge(word_freqs, pair_freqs, vocab, merges)
+        word_freqs, pair_freqs, vocab, merges, pair_to_words = _merge(word_freqs, pair_freqs, vocab, merges, pair_to_words)
 
     # 追加special_tokens到词表末尾
     for special in special_tokens:
@@ -143,4 +176,4 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
 
 
 if __name__ == "__main__":
-    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=300, special_tokens=['<|endoftext|>'])
+    train_bpe(input_path=r'data/TinyStoriesV2-GPT4-valid.txt', vocab_size=10000, special_tokens=['<|endoftext|>'])
