@@ -117,6 +117,13 @@ class Tokenizer:
         bytes_list = [self.vocab[id] for id in ids]
         bytes_tokens = b"".join(bytes_list)
         return bytes_tokens.decode("utf-8", errors="replace")
+    
+
+    def print_vocab(self, n):
+        vocab_length = len(self.vocab)
+        for i in range(vocab_length - 1, vocab_length - n - 1, -1):
+            print(self.vocab[i].decode('utf-8'))
+
 
 
 if __name__ == "__main__":
@@ -125,4 +132,5 @@ if __name__ == "__main__":
                                      special_tokens=['<|endoftext|>', '特殊token', '足够长的特殊token0123456789111'])
     encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     print(tokenizer.decode(encoded_text))
+    tokenizer.print_vocab(2)
     
