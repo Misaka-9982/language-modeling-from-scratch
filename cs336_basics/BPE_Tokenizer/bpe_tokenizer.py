@@ -15,7 +15,7 @@ class Tokenizer:
         self.pre_tokenize_PAT = re.compile(pre_tokenize_PAT)
         
         # special_token正则  追加special_token到词表
-        if self.special_tokens is not None:
+        if self.special_tokens:
             escaped_special_tokens = [re.escape(token) for token in self.special_tokens]
             escaped_special_tokens.sort(reverse=True, key=lambda t: len(t))  # 让长的正则优先匹配，保证<|endoftext|><|endoftext|>连着，且单独的和二连均作为sp传入时，正确被切成一个token，而不是两个
             self.rm_special_tokens_PAT = f"({'|'.join(escaped_special_tokens)})"  # 加上圆括号变成捕获组，re.split的时候保留special_toknes
@@ -127,10 +127,19 @@ class Tokenizer:
 
 
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
-                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
-                                     special_tokens=['<|endoftext|>', '特殊token', '足够长的特殊token0123456789111'])
-    encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
-    print(tokenizer.decode(encoded_text))
-    tokenizer.print_vocab(2)
-    
+    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_32k_owt_train.pkl', 
+                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_32k_owt_train.pkl', 
+                                     special_tokens=[])
+    # encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
+    # print(tokenizer.decode(encoded_text))
+    # tokenizer.print_vocab(10)
+    ids = tokenizer.encode('Today is a good day!')
+    print(ids)
+    print("=== ID 对应 Token 提取结果 ===")
+    for token_id in ids:
+        # 假设你的 vocab 是 {id: bytes} 或 {bytes: id} 的映射
+        if hasattr(tokenizer, 'vocab'):
+            # 处理 id -> bytes 的反向映射
+            id_to_bytes = {v: k for k, v in tokenizer.vocab.items()} if isinstance(list(tokenizer.vocab.keys())[0], bytes) else tokenizer.vocab
+            raw_bytes = id_to_bytes.get(token_id, b"UNK")
+            print(f"ID {token_id:<3} -> {repr(raw_bytes.decode('utf-8', errors='replace'))}")
