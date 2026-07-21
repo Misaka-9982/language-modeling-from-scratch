@@ -150,7 +150,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]):
     vocab = _init_vocab()
     word_freqs = _pre_tokenize(input_path, special_tokens)
     # 倒排索引  优化合并速度，避免每次合并都要遍历全词典，找需要修改的词
-    pair_to_words: dict[tuple[int, ...], set] = defaultdict(set)
+    pair_to_words: dict[tuple[int, int], set] = defaultdict(set)   # 找这个pair在哪些词中出现，避免修改时遍历全表
     # 这里定义局部增量更新的pair_freqs，不用重复统计不受影响的pair
     pair_freqs, pair_to_words = _get_stats(word_freqs, pair_to_words)
     merges = []
