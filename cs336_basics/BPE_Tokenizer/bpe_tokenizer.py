@@ -119,11 +119,12 @@ class Tokenizer:
         return bytes_tokens.decode("utf-8", errors="replace")
     
 
-    def print_vocab(self, n):
-        vocab_length = len(self.vocab)
-        for i in range(vocab_length - 1, vocab_length - n - 1, -1):
-            print(self.vocab[i].decode('utf-8'))
-
+    def print_vocab_longest(self, n: int):
+        longest_tokens = sorted(self.vocab.values(), key=len, reverse=True)[:n]
+        
+        for token in longest_tokens:
+            decoded = token.decode('utf-8', errors='replace')
+            print(f"长度 {len(token):<2} | Token: {decoded!r}")
 
 
 if __name__ == "__main__":
@@ -140,6 +141,7 @@ if __name__ == "__main__":
         # 假设你的 vocab 是 {id: bytes} 或 {bytes: id} 的映射
         if hasattr(tokenizer, 'vocab'):
             # 处理 id -> bytes 的反向映射
-            id_to_bytes = {v: k for k, v in tokenizer.vocab.items()} if isinstance(list(tokenizer.vocab.keys())[0], bytes) else tokenizer.vocab
+            id_to_bytes:dict = {v: k for k, v in tokenizer.vocab.items()} if isinstance(list(tokenizer.vocab.keys())[0], bytes) else tokenizer.vocab
             raw_bytes = id_to_bytes.get(token_id, b"UNK")
             print(f"ID {token_id:<3} -> {repr(raw_bytes.decode('utf-8', errors='replace'))}")
+    tokenizer.print_vocab_longest(10)
