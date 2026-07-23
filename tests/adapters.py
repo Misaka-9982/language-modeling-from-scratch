@@ -12,7 +12,7 @@ from torch import Tensor
 from cs336_basics.BPE_Tokenizer.bpe_trainer import train_bpe
 from cs336_basics.BPE_Tokenizer.bpe_tokenizer import Tokenizer
 
-from cs336_basics.model.linear import Linear
+from cs336_basics.model.modules import Linear
 
 
 
