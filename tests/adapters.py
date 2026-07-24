@@ -12,7 +12,7 @@ from torch import Tensor
 from cs336_basics.BPE_Tokenizer.bpe_trainer import train_bpe
 from cs336_basics.BPE_Tokenizer.bpe_tokenizer import Tokenizer
 
-from cs336_basics.model.modules import Linear
+from cs336_basics.model.modules import Linear, Embedding
 
 
 
@@ -60,6 +60,9 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
+    embedding_layer = Embedding(vocab_size, d_model)
+    embedding_layer.load_state_dict({"W": weights})
+    return embedding_layer(token_ids)
 
     raise NotImplementedError
 
