@@ -127,9 +127,30 @@ class Tokenizer:
             print(f"长度 {len(token):<2} | Token: {decoded!r}")
 
 
+    def print_vocab_range(self, a: int, b: int):
+        tokens = sorted(self.vocab.values(), key=len, reverse=False)[a:b]
+        
+        for token in tokens:
+            decoded = token.decode('utf-8', errors='replace')
+            print(f"长度 {len(token):<2} | Token: {decoded!r}")
+
+
+    def print_vocab_by_length(self, length: int, top_k: int):
+        # 1. 过滤出字节长度恰好等于 length 的 token
+        matched_tokens = [token for token in self.vocab.values() if len(token) == length]
+        
+        # 2. 取前 top_k 个（若需按字典序或其他规则排序，可在此加上 sorted）
+        selected_tokens = matched_tokens[:top_k]
+        
+        # 3. 打印输出
+        for token in selected_tokens:
+            decoded = token.decode('utf-8', errors='replace')
+            print(f"长度 {len(token):<2} | Token: {decoded!r}")
+
+
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_32k_owt_train.pkl', 
-                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_32k_owt_train.pkl', 
+    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_20k_斗破苍穹.pkl', 
+                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_20k_斗破苍穹.pkl', 
                                      special_tokens=[])
     # encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     # print(tokenizer.decode(encoded_text))
@@ -144,4 +165,5 @@ if __name__ == "__main__":
             id_to_bytes:dict = {v: k for k, v in tokenizer.vocab.items()} if isinstance(list(tokenizer.vocab.keys())[0], bytes) else tokenizer.vocab
             raw_bytes = id_to_bytes.get(token_id, b"UNK")
             print(f"ID {token_id:<3} -> {repr(raw_bytes.decode('utf-8', errors='replace'))}")
-    tokenizer.print_vocab_longest(10)
+    # tokenizer.print_vocab_longest(10)
+    tokenizer.print_vocab_by_length(length=6, top_k=100)
