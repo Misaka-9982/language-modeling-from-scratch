@@ -53,4 +53,22 @@ class RMSNorm(nn.Module):
 
         return result.to(in_dtype)
 
-        
+
+class SwiGLU(nn.Module):
+    def __init__(self, d_model: int, d_ff: int, device:torch.device | None = None, dtype:torch.dtype | None = None):
+        super().__init__()
+
+        std = math.sqrt(2 / (d_ff + d_model))
+        W1_empty = torch.empty(d_ff, d_model, device=device, dtype=dtype)
+        W2_empty = torch.empty(d_model, d_ff, device=device, dtype=dtype)
+        W3_empty = torch.empty(d_ff, d_model, device=device, dtype=dtype)
+
+        self.W1 = nn.Parameter(torch.nn.init.trunc_normal_(W1_empty, mean=0, std=std, a=-3*std, b=3*std))
+        self.W2 = nn.Parameter(torch.nn.init.trunc_normal_(W2_empty, mean=0, std=std, a=-3*std, b=3*std))
+        self.W3 = nn.Parameter(torch.nn.init.trunc_normal_(W3_empty, mean=0, std=std, a=-3*std, b=3*std))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        W1x = einops.einsum(self.W1, x, 'out in, ... in -> ... out')
+        SiLU_W1x = torch.sigmoid(W1x) * W1x
+        W3x = einops.einsum(self.W3, x, 'out in, ... in -> ... out')
+        return einops.einsum(self.W2, SiLU_W1x * W3x, 'out in, ... in -> ... out')
