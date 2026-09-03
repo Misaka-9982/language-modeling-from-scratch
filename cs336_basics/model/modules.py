@@ -72,3 +72,42 @@ class SwiGLU(nn.Module):
         SiLU_W1x = torch.sigmoid(W1x) * W1x
         W3x = einops.einsum(self.W3, x, 'out in, ... in -> ... out')
         return einops.einsum(self.W2, SiLU_W1x * W3x, 'out in, ... in -> ... out')
+
+
+class RotaryPositionalEmbedding(nn.Module):
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None=None):
+        # d_k是传入向量，也就是query和key向量的维度
+        super().__init__()
+
+        # 预计算旋转矩阵sin和cos缓存
+        # 利用广播机制快速生成theta_ik，避免显式的两层循环
+        i = einops.rearrange(torch.arange(max_seq_len), 'max_seq_len -> max_seq_len 1')
+        k = einops.rearrange(torch.arange(d_k // 2), 'd_k -> 1 d_k')
+        theta_ik = i / (theta ** ((2 * k) / d_k))   # 利用广播机制
+        sin_cached = torch.sin(theta_ik)
+        cos_cached = torch.cos(theta_ik)
+        # 注册成非学习的模型参数
+        self.register_buffer('sin_cached', sin_cached, persistent=False)
+        self.register_buffer('cos_cached', cos_cached, persistent=False)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # cos_cached是动态挂载的，ide检查会出问题
+        cos = self.cos_cached[token_positions]
+        sin = self.sin_cached[token_positions]
+
+        # # 对齐特征维度，从[1,2,3]变成[1,1,2,2,3,3,]
+        # cos = einops.repeat(cos, '... d -> ... (d repeat)', repeat=2)
+        # sin = einops.repeat(sin, '... d -> ... (d repeat)', repeat=2)
+
+        x1 = x[..., 0::2]  # 成对切片取出二维小向量的第一，第二维度
+        x2 = x[..., 1::2]  # start:end:step
+
+        x1_out = x1 * cos - x2 * sin   # 旋转矩阵/旋转公式
+        x2_out = x1 * sin + x2 * cos
+
+        # 拼回完整的输入x
+        x_out = torch.stack([x1_out, x2_out], dim=-1).flatten(start_dim=-2)   # 最后两个维度是行，列  
+        # 也可以 x = rearrange(torch.stack((x1, x2), dim=-1), '... d two -> ... (d two)')
+
+        return x_out
+    
