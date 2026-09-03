@@ -86,7 +86,9 @@ class RotaryPositionalEmbedding(nn.Module):
         theta_ik = i / (theta ** ((2 * k) / d_k))   # 利用广播机制
         sin_cached = torch.sin(theta_ik)
         cos_cached = torch.cos(theta_ik)
-        # 注册成非学习的模型参数
+        # 注册成非学习的buffer  预声明一下，防止后续ide静态类型检查报错
+        self.sin_cached: torch.Tensor
+        self.cos_cached: torch.Tensor
         self.register_buffer('sin_cached', sin_cached, persistent=False)
         self.register_buffer('cos_cached', cos_cached, persistent=False)
 
@@ -110,4 +112,14 @@ class RotaryPositionalEmbedding(nn.Module):
         # 也可以 x = rearrange(torch.stack((x1, x2), dim=-1), '... d two -> ... (d two)')
 
         return x_out
+
+
+def softmax(x: torch.Tensor, dimension: int) -> torch.Tensor:
+    max_values = x.max(dim=dimension, keepdim=True).values   # max函数返回的结构是命名元组 (values, indices)
+    x_trunc = x - max_values
+    out = torch.exp(x_trunc) / torch.sum(torch.exp(x_trunc), dim=dimension, keepdim=True)
+
+    return out
+    
+
     
