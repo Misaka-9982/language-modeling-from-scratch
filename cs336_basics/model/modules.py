@@ -122,4 +122,17 @@ def softmax(x: torch.Tensor, dimension: int) -> torch.Tensor:
     return out
     
 
+# 完整的缩放点积注意力函数，接受QKV和可选的mask  输出为经过注意力加权聚合过的V向量
+def scaled_dot_product_attention(queries: torch.Tensor, keys: torch.Tensor, values: torch.Tensor, 
+                                 mask: torch.Tensor | None=None) -> torch.Tensor:  # mask里的元素数据类型是bool
+    # q @ k.T / sqrt(d_k)
+    pre_softmax = einops.einsum(queries, keys, '... q d_k, ... k d_k -> ... q k') / math.sqrt(keys.shape[-1])
+
+    # 应用mask
+    if mask is not None:
+        pre_softmax = pre_softmax.masked_fill(~mask, float('-inf'))   # 注意masked_fill默认是true的位置填充，所以要用~取反，false填-inf
     
+    attention_pattern = softmax(pre_softmax, dimension=-1)   # 逐行计算softmax
+    weighted_values = einops.einsum(attention_pattern, values, '... q k, ... k d_v -> ... q d_v')  # 加权乘给v
+    
+    return weighted_values
