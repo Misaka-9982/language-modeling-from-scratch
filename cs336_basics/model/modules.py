@@ -93,7 +93,7 @@ class RotaryPositionalEmbedding(nn.Module):
         self.register_buffer('cos_cached', cos_cached, persistent=False)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
-        # cos_cached是动态挂载的，ide检查会出问题
+        # cos_cached是动态挂载的
         cos = self.cos_cached[token_positions]
         sin = self.sin_cached[token_positions]
 
@@ -140,36 +140,42 @@ def scaled_dot_product_attention(queries: torch.Tensor, keys: torch.Tensor, valu
 
 
 class multihead_self_attention(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, device: torch.device | None=None, dtype: torch.dtype | None=None):
+    def __init__(self, d_model: int, num_heads: int, theta: float, max_seq_len: int, device: torch.device | None=None, dtype: torch.dtype | None=None):
         super().__init__()
 
         self.num_heads = num_heads
         self.d_k = self.d_v = d_model // num_heads   # 这里定义d_k = d_v
+        self.rope = RotaryPositionalEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len, device=device)
 
         # 注意这里的W_q W_k W_v 都是多个头直接拼在一起的
-        self.q_proj = Linear(num_heads * self.d_k, d_model, device, dtype)   # 严格定义是d_model * (num_heads*d_k)，但是这里定义d_k = d_v = d_model / num_heads
-        self.k_proj = Linear(num_heads * self.d_k, d_model, device, dtype)
-        self.v_proj = Linear(num_heads * self.d_v, d_model, device, dtype)
-        self.o_proj = Linear(d_model, num_heads * self.d_v, device, dtype)
+        self.q_proj = Linear(d_model, num_heads * self.d_k, device, dtype)   # 严格定义是d_model * (num_heads*d_k)，但是这里定义d_k = d_v = d_model / num_heads
+        self.k_proj = Linear(d_model, num_heads * self.d_k, device, dtype)
+        self.v_proj = Linear(d_model, num_heads * self.d_v, device, dtype)
+        self.o_proj = Linear(num_heads * self.d_v, d_model, device, dtype)
 
-    def forward(self, x:torch.Tensor) -> torch.Tensor:
+    def forward(self, x:torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        seq_len = x.shape[-2]
+
         Q = self.q_proj(x)
         K = self.k_proj(x)
         V = self.v_proj(x)
 
         # 拆出每个头的结果
-        Q_seprated = einops.rearrange(Q, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
-        K_seprated = einops.rearrange(K, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
-        V_seprated = einops.rearrange(V, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
+        Q_seprated = einops.rearrange(Q, '... seq_len (num_heads d_k) -> ... num_heads seq_len d_k', num_heads=self.num_heads)
+        K_seprated = einops.rearrange(K, '... seq_len (num_heads d_k) -> ... num_heads seq_len d_k', num_heads=self.num_heads)
+        V_seprated = einops.rearrange(V, '... seq_len (num_heads d_v) -> ... num_heads seq_len d_v', num_heads=self.num_heads)
 
-        seq_len = x.shape[-2]
+        # 对 Q K 逐头施加RoPE
+        Q_seprated = self.rope(Q_seprated, token_positions)
+        K_seprated = self.rope(K_seprated, token_positions)
+
         mask = torch.tril(torch.ones(seq_len, seq_len, device=x.device
                                      , dtype=torch.bool))  # 生成下三角矩阵mask
 
         pre_out = scaled_dot_product_attention(Q_seprated, K_seprated, V_seprated, mask)  # pre_out的形状是(batch heads q d_v)
 
         # 传给O矩阵之前要把多个头的结果重新拼回去，变回 q * (h*d_v)  把不同头对于同一个token的输出拼成一个长向量
-        pre_out = einops.rearrange(pre_out, 'batch num_heads q d_v -> batch q (num_heads d_v)')
+        pre_out = einops.rearrange(pre_out, '... num_heads q d_v -> ... q (num_heads d_v)')
 
         return self.o_proj(pre_out)
     
