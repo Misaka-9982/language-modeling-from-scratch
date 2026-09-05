@@ -123,6 +123,7 @@ def softmax(x: torch.Tensor, dimension: int) -> torch.Tensor:
     
 
 # 完整的缩放点积注意力函数，接受QKV和可选的mask  输出为经过注意力加权聚合过的V向量
+# mask的语义是：True = 允许 attention；False = 不允许 attention
 def scaled_dot_product_attention(queries: torch.Tensor, keys: torch.Tensor, values: torch.Tensor, 
                                  mask: torch.Tensor | None=None) -> torch.Tensor:  # mask里的元素数据类型是bool
     # q @ k.T / sqrt(d_k)
@@ -136,3 +137,39 @@ def scaled_dot_product_attention(queries: torch.Tensor, keys: torch.Tensor, valu
     weighted_values = einops.einsum(attention_pattern, values, '... q k, ... k d_v -> ... q d_v')  # 加权乘给v
     
     return weighted_values
+
+
+class multihead_self_attention(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, device: torch.device | None=None, dtype: torch.dtype | None=None):
+        super().__init__()
+
+        self.num_heads = num_heads
+        self.d_k = self.d_v = d_model // num_heads   # 这里定义d_k = d_v
+
+        # 注意这里的W_q W_k W_v 都是多个头直接拼在一起的
+        self.q_proj = Linear(num_heads * self.d_k, d_model, device, dtype)   # 严格定义是d_model * (num_heads*d_k)，但是这里定义d_k = d_v = d_model / num_heads
+        self.k_proj = Linear(num_heads * self.d_k, d_model, device, dtype)
+        self.v_proj = Linear(num_heads * self.d_v, d_model, device, dtype)
+        self.o_proj = Linear(d_model, num_heads * self.d_v, device, dtype)
+
+    def forward(self, x:torch.Tensor) -> torch.Tensor:
+        Q = self.q_proj(x)
+        K = self.k_proj(x)
+        V = self.v_proj(x)
+
+        # 拆出每个头的结果
+        Q_seprated = einops.rearrange(Q, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
+        K_seprated = einops.rearrange(K, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
+        V_seprated = einops.rearrange(V, 'batch seq_len (num_heads d_k) -> batch num_heads seq_len d_k', num_heads=self.num_heads)
+
+        seq_len = x.shape[-2]
+        mask = torch.tril(torch.ones(seq_len, seq_len, device=x.device
+                                     , dtype=torch.bool))  # 生成下三角矩阵mask
+
+        pre_out = scaled_dot_product_attention(Q_seprated, K_seprated, V_seprated, mask)  # pre_out的形状是(batch heads q d_v)
+
+        # 传给O矩阵之前要把多个头的结果重新拼回去，变回 q * (h*d_v)  把不同头对于同一个token的输出拼成一个长向量
+        pre_out = einops.rearrange(pre_out, 'batch num_heads q d_v -> batch q (num_heads d_v)')
+
+        return self.o_proj(pre_out)
+    
