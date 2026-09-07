@@ -158,6 +158,11 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+
+    # MHA_layer = multihead_self_attention(d_model=d_model, num_heads=num_heads)
+    # MHA_layer.load_state_dict({'q_proj.W': q_proj_weight, 'k_proj.W': k_proj_weight, 'v_proj.W': v_proj_weight, 
+                            #    'o_proj.W': o_proj_weight})
+    # return MHA_layer(in_features)
     raise NotImplementedError
 
 
@@ -198,6 +203,12 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
+
+    MHA_layer = multihead_self_attention(d_model=d_model, num_heads=num_heads, theta=theta, max_seq_len=max_seq_len)
+    MHA_layer.load_state_dict({'q_proj.W': q_proj_weight, 'k_proj.W': k_proj_weight, 'v_proj.W': v_proj_weight, 
+                               'o_proj.W': o_proj_weight, })
+    return MHA_layer(in_features, token_positions)
+
     raise NotImplementedError
 
 

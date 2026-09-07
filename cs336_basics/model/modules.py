@@ -101,6 +101,7 @@ class RotaryPositionalEmbedding(nn.Module):
         # cos = einops.repeat(cos, '... d -> ... (d repeat)', repeat=2)
         # sin = einops.repeat(sin, '... d -> ... (d repeat)', repeat=2)
 
+        # 这样拆出来就是对最内层小向量操作，外层维度全部保持，seq是通过token_positions的形状区分的
         x1 = x[..., 0::2]  # 成对切片取出二维小向量的第一，第二维度
         x2 = x[..., 1::2]  # start:end:step
 
@@ -166,6 +167,10 @@ class multihead_self_attention(nn.Module):
         V_seprated = einops.rearrange(V, '... seq_len (num_heads d_v) -> ... num_heads seq_len d_v', num_heads=self.num_heads)
 
         # 对 Q K 逐头施加RoPE
+        # 如果positions带batch维度[B, S]，会导致中间缺head维度，rope中会广播失败，所以补一个
+        # cos: [B, 1, S, D]
+        # Q/K: [B, H, S, D]
+        token_positions = einops.rearrange(token_positions, '... seq_len -> ... 1 seq_len')  
         Q_seprated = self.rope(Q_seprated, token_positions)
         K_seprated = self.rope(K_seprated, token_positions)
 
