@@ -204,7 +204,7 @@ def run_multihead_self_attention_with_rope(
         implementation with the given QKV projection weights and input features.
     """
 
-    MHA_layer = multihead_self_attention(d_model=d_model, num_heads=num_heads, theta=theta, max_seq_len=max_seq_len)
+    MHA_layer = MultiHeadSelfAttention(d_model=d_model, num_heads=num_heads, theta=theta, max_seq_len=max_seq_len)
     MHA_layer.load_state_dict({'q_proj.W': q_proj_weight, 'k_proj.W': k_proj_weight, 'v_proj.W': v_proj_weight, 
                                'o_proj.W': o_proj_weight, })
     return MHA_layer(in_features, token_positions)
@@ -308,6 +308,19 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
+
+    transformer_block = TransformerBlock(d_model, num_heads, d_ff, theta, max_seq_len)
+    transformer_block.load_state_dict({'mha.q_proj.W': weights['attn.q_proj.weight'],
+                                       'mha.k_proj.W': weights['attn.k_proj.weight'],
+                                       'mha.v_proj.W': weights['attn.v_proj.weight'],
+                                       'mha.o_proj.W': weights['attn.output_proj.weight'],
+                                       'rmsnorm1.g': weights['ln1.weight'],
+                                       'rmsnorm2.g': weights['ln2.weight'],
+                                       'swiglu_fnn.W1': weights['ffn.w1.weight'],
+                                       'swiglu_fnn.W2': weights['ffn.w2.weight'],
+                                       'swiglu_fnn.W3': weights['ffn.w3.weight'],})
+    return transformer_block(in_features)
+
     raise NotImplementedError
 
 

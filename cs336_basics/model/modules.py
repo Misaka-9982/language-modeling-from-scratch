@@ -140,7 +140,7 @@ def scaled_dot_product_attention(queries: torch.Tensor, keys: torch.Tensor, valu
     return weighted_values
 
 
-class multihead_self_attention(nn.Module):
+class MultiHeadSelfAttention(nn.Module):
     def __init__(self, d_model: int, num_heads: int, theta: float, max_seq_len: int, device: torch.device | None=None, dtype: torch.dtype | None=None):
         super().__init__()
 
@@ -181,6 +181,28 @@ class multihead_self_attention(nn.Module):
 
         # 传给O矩阵之前要把多个头的结果重新拼回去，变回 q * (h*d_v)  把不同头对于同一个token的输出拼成一个长向量
         pre_out = einops.rearrange(pre_out, '... num_heads q d_v -> ... q (num_heads d_v)')
-
+ 
         return self.o_proj(pre_out)
-    
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, d_ff:int, theta: float, max_seq_len: int, 
+                 eps: float = 0.00001, device: torch.device | None=None, dtype: torch.dtype | None=None):
+        super().__init__()
+
+        self.rmsnorm1 = RMSNorm(d_model=d_model, eps=eps, device=device, dtype=dtype)
+        self.rmsnorm2 = RMSNorm(d_model=d_model, eps=eps, device=device, dtype=dtype)
+        self.mha = MultiHeadSelfAttention(d_model=d_model, num_heads=num_heads, theta=theta, max_seq_len=max_seq_len,
+                                            device=device, dtype=dtype)
+        self.swiglu_fnn = SwiGLU(d_model=d_model, d_ff=d_ff, device=device, dtype=dtype)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None=None) -> torch.Tensor:
+        # 生成token_positions的默认值
+        if token_positions is None:
+            token_positions = torch.arange(x.shape[-2], device=x.device)
+            
+        x1 = x + self.mha(self.rmsnorm1(x), token_positions)
+        x2 = x1 + self.swiglu_fnn(self.rmsnorm2(x1))
+
+        return x2
+
