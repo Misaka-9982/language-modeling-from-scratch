@@ -403,6 +403,48 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
+
+    transformerlm = TransformerLM(d_model, num_heads, d_ff, rope_theta, vocab_size, 
+                                  context_length, num_layers)
+
+    state_dict = {
+        "input_embeddings.W": weights["token_embeddings.weight"],
+        "last_norm.g": weights["ln_final.weight"],
+        "lm_head.W": weights["lm_head.weight"],
+    }
+
+    for num_layer in range(num_layers):
+        state_dict[f"transformer_layers.{num_layer}.mha.q_proj.W"] = \
+            weights[f"layers.{num_layer}.attn.q_proj.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.mha.k_proj.W"] = \
+            weights[f"layers.{num_layer}.attn.k_proj.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.mha.v_proj.W"] = \
+            weights[f"layers.{num_layer}.attn.v_proj.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.mha.o_proj.W"] = \
+            weights[f"layers.{num_layer}.attn.output_proj.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.rmsnorm1.g"] = \
+            weights[f"layers.{num_layer}.ln1.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.rmsnorm2.g"] = \
+            weights[f"layers.{num_layer}.ln2.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.swiglu_fnn.W1"] = \
+            weights[f"layers.{num_layer}.ffn.w1.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.swiglu_fnn.W2"] = \
+            weights[f"layers.{num_layer}.ffn.w2.weight"]
+
+        state_dict[f"transformer_layers.{num_layer}.swiglu_fnn.W3"] = \
+            weights[f"layers.{num_layer}.ffn.w3.weight"]
+
+    transformerlm.load_state_dict(state_dict)
+
+    return transformerlm(in_indices)
+        
     raise NotImplementedError
 
 
