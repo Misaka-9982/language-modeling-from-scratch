@@ -118,7 +118,8 @@ class RotaryPositionalEmbedding(nn.Module):
 def softmax(x: torch.Tensor, dimension: int) -> torch.Tensor:
     max_values = x.max(dim=dimension, keepdim=True).values   # max函数返回的结构是命名元组 (values, indices)
     x_trunc = x - max_values
-    out = torch.exp(x_trunc) / torch.sum(torch.exp(x_trunc), dim=dimension, keepdim=True)
+    exp_x = torch.exp(x_trunc)
+    out =  exp_x / torch.sum(exp_x, dim=dimension, keepdim=True)
 
     return out
     
@@ -235,3 +236,16 @@ class TransformerLM(nn.Module):
 
         return x
 
+
+def cross_entropy_loss(o: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    # o.shape==(B,T,V)  target==(B,T)
+    max_values = torch.max(o, dim=-1, keepdim=True).values
+
+    # 在o的最后一维上索引，unsqueeze让target维数变成3个[B,T,1]和o一致
+    # [B,T] -> [B,T,1]，然后沿 vocab 维取正确 token 的 logit
+    target_o = torch.gather(o, dim=-1, index=target.unsqueeze(-1))
+    # 化简后的-log softmax   'log-sum-exp'
+    negative_log_p = -target_o + max_values + torch.log(torch.sum(torch.exp(o - max_values), dim=-1, keepdim=True))
+    loss = torch.mean(negative_log_p)
+
+    return loss
