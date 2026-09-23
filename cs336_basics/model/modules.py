@@ -264,8 +264,15 @@ class AdamW(torch.optim.Optimizer):
         
         super().__init__(params, defaults)
 
+    
     @torch.no_grad()  # 参数更新的步骤不记入计算图，避免错误计算参数的梯度
-    def step(self, closure=None):  # closure是pytorch默认的一个可选参数，接受一个闭包函数，比如loss()，在step时计算loss
+    # closure是pytorch默认的一个可选参数，接受一个闭包函数，比如loss()，在step时计算loss
+    def step(self, closure: Callable | None=None):  # pyright: ignore[reportIncompatibleMethodOverride]
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
         for group in self.param_groups:
             # 取出组里的所有超参数
             lr = group['lr']
@@ -303,7 +310,8 @@ class AdamW(torch.optim.Optimizer):
                 state['t'] = t + 1
                 state['m'] = m
                 state['v'] = v
-                
+
+        return loss
 
 
 
