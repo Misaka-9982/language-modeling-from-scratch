@@ -1,3 +1,4 @@
+from collections.abc import Callable, Iterable
 from typing import Any
 import math
 
@@ -242,10 +243,67 @@ def cross_entropy_loss(o: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     max_values = torch.max(o, dim=-1, keepdim=True).values
 
     # 在o的最后一维上索引，unsqueeze让target维数变成3个[B,T,1]和o一致
-    # [B,T] -> [B,T,1]，然后沿 vocab 维取正确 token 的 logit
-    target_o = torch.gather(o, dim=-1, index=target.unsqueeze(-1))
+    # target.shape==[B,T] -> [B,T,1]，然后沿 vocab 维取正确 token 的 logit
+    target_o_i = torch.gather(o, dim=-1, index=target.unsqueeze(-1))
     # 化简后的-log softmax   'log-sum-exp'
-    negative_log_p = -target_o + max_values + torch.log(torch.sum(torch.exp(o - max_values), dim=-1, keepdim=True))
+    # log-sum-exp 化简可以在数学上避免计算分子部分的log，防止当正确的p非常接近0时，出现log (p) = -inf的情况
+    negative_log_p = -target_o_i + max_values + torch.log(torch.sum(torch.exp(o - max_values), dim=-1, keepdim=True))
     loss = torch.mean(negative_log_p)
 
     return loss
+
+
+class AdamW(torch.optim.Optimizer):
+    def __init__(self, params, lr: float, betas:tuple[float, float], eps: float, weight_decay: float):
+        defaults = {
+            'lr': lr,
+            'betas': betas,
+            'eps': eps,
+            'weight_decay': weight_decay
+        }
+        
+        super().__init__(params, defaults)
+
+    @torch.no_grad()  # 参数更新的步骤不记入计算图，避免错误计算参数的梯度
+    def step(self, closure=None):  # closure是pytorch默认的一个可选参数，接受一个闭包函数，比如loss()，在step时计算loss
+        for group in self.param_groups:
+            # 取出组里的所有超参数
+            lr = group['lr']
+            beta1, beta2 = group['betas']
+            eps = group['eps']
+            weight_decay = group['weight_decay']
+
+            # 遍历模型的可学习参数并进行更新
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                state = self.state[p]
+                # 首次初始化
+                if 'm' not in state:
+                    state['t'] = 1
+                    state['m'] = torch.zeros_like(p)
+                    state['v'] = torch.zeros_like(p)
+
+                t = state['t']  # 获取迭代轮次，AdamW中初始设为1
+                m = state['m']  # 一阶矩和二阶矩
+                v = state['v']
+
+                # 把m，v的修正一起合并到学习率上  用step_lr是为了保证本轮每个p的lr都一致
+                step_lr = lr * (math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t))
+                # 权重衰减
+                p -= lr * weight_decay * p  # 这里用原始lr，不是修正过后的step_lr
+                # 一阶矩/梯度的指数移动平均
+                m = beta1 * m + (1 - beta1) * p.grad
+                # 二阶矩/梯度平方的指数移动平均
+                v = beta2 * v + (1 - beta2) * torch.square(p.grad)
+                # 更新模型参数
+                p -= step_lr * m / (torch.sqrt(v) + eps)
+                # 写回状态字典
+                state['t'] = t + 1
+                state['m'] = m
+                state['v'] = v
+                
+
+
+
