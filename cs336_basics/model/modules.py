@@ -322,3 +322,21 @@ def learning_rate_schedule(iter: int, lr_max: float, lr_min: float, warm_up_iter
     else:
         return lr_min
     
+
+def gradient_clipping(params, max_l2_norm):
+    grad_square_sum = 0
+    for p in params:
+        if p.grad is None:
+            continue
+        grad_square_sum += torch.sum(torch.square(p.grad))
+    all_l2_norm = math.sqrt(grad_square_sum)
+
+    if all_l2_norm >= max_l2_norm:
+        # 压缩比例
+        scale = max_l2_norm / (all_l2_norm + 1e-6)
+
+        for p in params:
+            if p.grad is not None:
+                # 原地修改
+                p.grad.mul_(scale)
+            
