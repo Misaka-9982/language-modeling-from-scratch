@@ -267,7 +267,7 @@ class AdamW(torch.optim.Optimizer):
     
     @torch.no_grad()  # 参数更新的步骤不记入计算图，避免错误计算参数的梯度
     # closure是pytorch默认的一个可选参数，接受一个闭包函数，比如loss()，在step时计算loss
-    def step(self, closure: Callable | None=None):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def step(self, closure: Callable | None = None):  # pyright: ignore[reportIncompatibleMethodOverride]
         loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -314,4 +314,11 @@ class AdamW(torch.optim.Optimizer):
         return loss
 
 
-
+def learning_rate_schedule(iter: int, lr_max: float, lr_min: float, warm_up_iters: int, final_iters: int):
+    if iter < warm_up_iters:
+        return iter / warm_up_iters * lr_max
+    elif warm_up_iters <= iter and iter <= final_iters:
+        return lr_min + 0.5 * (1 + math.cos((iter - warm_up_iters) / (final_iters - warm_up_iters) * math.pi)) * (lr_max - lr_min)
+    else:
+        return lr_min
+    
