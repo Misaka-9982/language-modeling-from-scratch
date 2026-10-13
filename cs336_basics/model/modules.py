@@ -5,6 +5,8 @@ import math
 import torch
 import torch.nn as nn
 import einops
+import numpy as np
+import random
 
 class Linear(nn.Module):
     def __init__(self, in_features: int, out_features: int, device: torch.device | None = None, dtype: torch.dtype | None = None):
@@ -339,4 +341,18 @@ def gradient_clipping(params, max_l2_norm):
             if p.grad is not None:
                 # 原地修改
                 p.grad.mul_(scale)
-            
+
+# 返回一对Tensors，Tensor.shape=(batch_size, context_length)  device e.g.: 'cpu' or 'cuda:0'
+def dataloader(dataset: np.ndarray, batch_size: int, context_length: int, device: str) -> tuple[torch.Tensor, torch.Tensor]:
+    input_batch = torch.empty((batch_size, context_length), dtype=torch.long)
+    target_batch = torch.empty((batch_size, context_length), dtype=torch.long)
+    for i in range(batch_size):
+        # random.randint左右端点都包含
+        sample_start = random.randint(0, len(dataset) - context_length - 1)  # target要向后平移一个位置，所以多-1
+        input_batch[i] = torch.from_numpy(dataset[sample_start: sample_start + context_length])
+        target_batch[i] = torch.from_numpy(dataset[sample_start + 1: sample_start + context_length + 1])
+
+    input_batch = input_batch.to(device)
+    target_batch = target_batch.to(device)
+
+    return input_batch, target_batch
