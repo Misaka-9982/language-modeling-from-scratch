@@ -1,6 +1,8 @@
 from collections.abc import Callable, Iterable
 from typing import Any
 import math
+import os
+import typing
 
 import torch
 import torch.nn as nn
@@ -344,7 +346,7 @@ def gradient_clipping(params, max_l2_norm):
 
 # 返回一对Tensors，Tensor.shape=(batch_size, context_length)  device e.g.: 'cpu' or 'cuda:0'
 def dataloader(dataset: np.ndarray, batch_size: int, context_length: int, device: str) -> tuple[torch.Tensor, torch.Tensor]:
-    input_batch = torch.empty((batch_size, context_length), dtype=torch.long)
+    input_batch = torch.empty((batch_size, context_length), dtype=torch.long)  # 会作为embedding的索引，显式用long类型
     target_batch = torch.empty((batch_size, context_length), dtype=torch.long)
     for i in range(batch_size):
         # random.randint左右端点都包含
@@ -356,3 +358,23 @@ def dataloader(dataset: np.ndarray, batch_size: int, context_length: int, device
     target_batch = target_batch.to(device)
 
     return input_batch, target_batch
+
+
+def save_checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, 
+                    iteration: int, out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes]):
+    out_dict = {}
+    out_dict['model'] = model.state_dict()
+    out_dict['optimizer'] = optimizer.state_dict()
+    out_dict['iteration'] = iteration
+    torch.save(out_dict, out)
+
+
+# 该函数返回检查点里保存的迭代轮数 iteration
+def load_checkpoint(src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes], 
+                    model: torch.nn.Module, optimizer: torch.optim.Optimizer) -> int:
+    in_dict = torch.load(src)
+    model.load_state_dict(in_dict['model'])
+    optimizer.load_state_dict(in_dict['optimizer'])
+    
+    return in_dict['iteration']
+
