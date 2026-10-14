@@ -149,21 +149,12 @@ class Tokenizer:
 
 
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_20k_斗破苍穹.pkl', 
-                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_20k_斗破苍穹.pkl', 
+    tokenizer = Tokenizer.from_files(vocab_filepath='data/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
+                                     merges_filepath='data/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
                                      special_tokens=[])
     # encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     # print(tokenizer.decode(encoded_text))
     # tokenizer.print_vocab(10)
     ids = tokenizer.encode('Today is a good day!')
     print(ids)
-    print("=== ID 对应 Token 提取结果 ===")
-    for token_id in ids:
-        # 假设你的 vocab 是 {id: bytes} 或 {bytes: id} 的映射
-        if hasattr(tokenizer, 'vocab'):
-            # 处理 id -> bytes 的反向映射
-            id_to_bytes:dict = {v: k for k, v in tokenizer.vocab.items()} if isinstance(list(tokenizer.vocab.keys())[0], bytes) else tokenizer.vocab
-            raw_bytes = id_to_bytes.get(token_id, b"UNK")
-            print(f"ID {token_id:<3} -> {repr(raw_bytes.decode('utf-8', errors='replace'))}")
-    # tokenizer.print_vocab_longest(10)
     tokenizer.print_vocab_by_length(length=6, top_k=100)
