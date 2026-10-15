@@ -2,6 +2,10 @@
 
 import torch
 import argparse
+import numpy as np
+
+from modules import *
+from tqdm import tqdm
 
 
 def parse_args():
@@ -32,12 +36,32 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--checkpoint_path", type=str, default="checkpoint.pt")
+    parser.add_argument("--max_steps", type=int, required=True)
 
     return parser.parse_args()
     
 
 def main(args):
-    pass
+    # 初始化model和optimizer
+    model = TransformerLM(args.d_model, args.num_heads, args.d_ff, args.rope_theta,
+                          args.vocab_size, args.context_length, args.num_layers, args.rms_eps,
+                          args.device, dtype=torch.float32)
+    optimizer = AdamW(model.state_dict(), args.lr, (args.beta1, args.beta2), args.eps, args.weight_decay)
+
+    # 加载数据集
+    # 用memmap的方式加载tokenized数据到虚拟内存，避免一次性加载整个数据集到物理内存
+    train_data = np.load(args.train_data, mmap_mode='r')
+    val_data = np.load(args.val_data, mmap_mode='r')
+
+    # 出于性能考虑暂时注释掉了
+    # 显式检查一下数据集的ids中是否包括超过vocab_size的值
+    # assert max(train_data) < args.vocab_size
+    # assert max(val_data) < args.vocab_size
+
+    # 训练循环
+    for step in tqdm(range(args.max_steps)):
+        print(f'step: {step + 1}')
+        
 
 
 if __name__ == '__main__':
