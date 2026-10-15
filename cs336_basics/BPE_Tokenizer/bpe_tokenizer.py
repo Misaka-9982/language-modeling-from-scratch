@@ -1,6 +1,9 @@
 import pickle
 from collections.abc import Iterable, Iterator
 import regex as re
+import numpy as np
+from pathlib import Path
+from tqdm import tqdm
 
 class Tokenizer:
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None):
@@ -103,7 +106,7 @@ class Tokenizer:
 
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        for chunk in iterable:
+        for chunk in tqdm(iterable):
             if not chunk:
                 continue
 
@@ -145,16 +148,36 @@ class Tokenizer:
         # 3. 打印输出
         for token in selected_tokens:
             decoded = token.decode('utf-8', errors='replace')
+            # <2左对齐，最小2个字符宽；!r 调用repr(decoded)输出原始文本，比如'\n'
             print(f"长度 {len(token):<2} | Token: {decoded!r}")
 
 
+# 需要内存能放下uint16格式的全数据集ids
+def tokenize_dataset(tokenizer: Tokenizer, file_path):
+    file_path = Path(file_path)
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        ids = np.fromiter(iter=tokenizer.encode_iterable(f), dtype=np.uint16)
+        
+    # 保存在源文件路径下
+    output_path = file_path.with_name('tokenized_' + file_path.stem + '.npy')
+    np.save(output_path, ids)
+
+    return output_path
+
+
 if __name__ == "__main__":
-    tokenizer = Tokenizer.from_files(vocab_filepath='data/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
-                                     merges_filepath='data/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
+    tokenizer = Tokenizer.from_files(vocab_filepath='cs336_basics/BPE_Tokenizer/tokenizer_vocab_10k_TinyStoriesV2-GPT4-train.pkl', 
+                                     merges_filepath='cs336_basics/BPE_Tokenizer/tokenizer_merges_10k_TinyStoriesV2-GPT4-train.pkl', 
                                      special_tokens=[])
     # encoded_text = tokenizer.encode('Hello World tokenizer! <|endoftext|> 你好，分词器！')
     # print(tokenizer.decode(encoded_text))
     # tokenizer.print_vocab(10)
     ids = tokenizer.encode('Today is a good day!')
     print(ids)
-    tokenizer.print_vocab_by_length(length=6, top_k=100)
+    # tokenizer.print_vocab_by_length(length=6, top_k=100)
+    
+    # 使用分词器tokenize整个数据集
+    # 在大内存服务器上跑
+    path = tokenize_dataset(tokenizer, '')
+    print(path)
