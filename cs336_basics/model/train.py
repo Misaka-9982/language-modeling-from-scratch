@@ -6,6 +6,7 @@ import numpy as np
 
 from modules import *
 from tqdm import tqdm
+from pathlib import Path
 
 
 def parse_args():
@@ -35,7 +36,8 @@ def parse_args():
     # training
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--checkpoint_path", type=str, default="checkpoint.pt")
+    parser.add_argument("--checkpoint_dir", type=str, default="./checkpoints")  # 保存目录
+    parser.add_argument("--resume_checkpoint", type=str, default=None)  # 加载目录
     parser.add_argument("--max_steps", type=int, required=True)
     parser.add_argument("--eval_interval", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=100)
@@ -44,6 +46,10 @@ def parse_args():
     
 
 def main(args):
+    # 确保目录存在
+    checkpoint_dir = Path(args.checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
     # 初始化model和optimizer
     model = TransformerLM(args.d_model, args.num_heads, args.d_ff, args.rope_theta,
                           args.vocab_size, args.context_length, args.num_layers, args.rms_eps,
@@ -60,8 +66,14 @@ def main(args):
     # assert max(train_data) < args.vocab_size
     # assert max(val_data) < args.vocab_size
 
+    start_step = 0
+    # 从checkpoint恢复训练
+    if args.resume_checkpoint is not None:
+        resume_checkpoint_path = Path(args.resume_checkpoint)
+        start_step = load_checkpoint(src=resume_checkpoint_path, model=model, optimizer=optimizer)
+
     # 训练循环
-    for step in range(args.max_steps):
+    for step in range(start_step, args.max_steps):
         print(f'step: {step + 1}')
 
         # 取训练batch
@@ -80,10 +92,32 @@ def main(args):
         optimizer.step()
 
         # 计算验证集loss
+        if (step + 1) % args.eval_interval == 0:
+            # 如果增加了dropout层，eval模式会影响模型行为
+            model.eval()
 
-        
+            with torch.no_grad():
+                val_input, val_target = dataloader(dataset=val_data, batch_size=args.batch_size, context_length=args.context_length, device=args.device)
+                val_y = model(val_input)
+                val_loss = cross_entropy_loss(val_y, val_target)
+                print(f'val loss: {val_loss.item()}')
+
+            model.train()
+
+        # 保存checkpoint
+        if (step + 1) % args.save_interval == 0:
+            save_checkpoint(model, optimizer, iteration=step + 1, 
+                            out=checkpoint_dir / f'checkpoint_step_{step + 1}.pt')
+
+    # final checkpoint
+    print('===训练结束===')
+    save_checkpoint(model, optimizer, iteration=args.max_steps, 
+                    out=checkpoint_dir / f'checkpoint_step_{args.max_steps}.pt')
+    print(f'Final checkpoint已保存到: {checkpoint_dir / f'checkpoint_step_{args.max_steps}.pt'}')
+
 
 
 if __name__ == '__main__':
     args = parse_args()
     main(args)
+# load函数  输出loss图 
