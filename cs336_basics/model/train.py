@@ -37,6 +37,8 @@ def parse_args():
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--checkpoint_path", type=str, default="checkpoint.pt")
     parser.add_argument("--max_steps", type=int, required=True)
+    parser.add_argument("--eval_interval", type=int, default=100)
+    parser.add_argument("--save_interval", type=int, default=100)
 
     return parser.parse_args()
     
@@ -59,8 +61,26 @@ def main(args):
     # assert max(val_data) < args.vocab_size
 
     # 训练循环
-    for step in tqdm(range(args.max_steps)):
+    for step in range(args.max_steps):
         print(f'step: {step + 1}')
+
+        # 取训练batch
+        train_input, train_target = dataloader(dataset=train_data, batch_size=args.batch_size, context_length=args.context_length, device=args.device)
+
+        y = model(train_input)
+
+        loss = cross_entropy_loss(y, train_target)
+        print(f'train loss: {loss.item()}')
+
+        # 清除历史梯度
+        optimizer.zero_grad()
+
+        loss.backward()
+
+        optimizer.step()
+
+        # 计算验证集loss
+
         
 
 
