@@ -385,6 +385,7 @@ def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_gener
              temperature: float, top_p: float, device: str):
     model.eval()
     tokens = tokenizer.encode(prompt)
+    eot_id = tokenizer.encode('<|endoftext|>')[0]
 
     output_ids = []
     with torch.no_grad():
@@ -394,24 +395,31 @@ def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_gener
             # 取生成的最后一个token
             output_logits: torch.Tensor = logits[-1, :]
 
-            # temperature scaling
-            scaled_prob = softmax(output_logits / temperature, dimension=0)
+            if temperature > 0:
+                # temperature scaling
+                scaled_prob = softmax(output_logits / temperature, dimension=0)
 
-            # top-p采样
-            sorted_prob, sorted_indices = torch.sort(scaled_prob, descending=True)
-            cum_prob = torch.cumsum(sorted_prob, dim=0)
-            threshold_indice = len(cum_prob[cum_prob < top_p]) + 1  # 按top-p取值到这个下标之前
-            
-            selected_prob = sorted_prob[:threshold_indice]
-            selected_indices = sorted_indices[:threshold_indice]
-            
-            sampled_pos = torch.multinomial(selected_prob, num_samples=1)   # 按概率采样
-            sampled_id = selected_indices[sampled_pos].item()
+                # top-p 核采样
+                sorted_prob, sorted_indices = torch.sort(scaled_prob, descending=True)
+                cum_prob = torch.cumsum(sorted_prob, dim=0)
+                threshold_indice = len(cum_prob[cum_prob < top_p]) + 1  # 按top-p取值到这个下标之前
+                
+                selected_prob = sorted_prob[:threshold_indice]
+                selected_indices = sorted_indices[:threshold_indice]
+                
+                sampled_pos = torch.multinomial(selected_prob, num_samples=1)   # 按概率采样
+                sampled_id = int(selected_indices[sampled_pos].item())
+            elif temperature == 0:
+                # temperature为0时回退到贪心采样
+                sampled_id = int(torch.argmax(output_logits).item())
+            else:
+                raise ValueError('Temperature 不能为负！')
 
-            if sampled_id == tokenizer.encode('<|endoftext|>'):
+            if sampled_id == eot_id:
                 break
             output_ids.append(sampled_id)
             tokens.append(sampled_id)
+            if len(tokens)
 
     
     return tokenizer.decode(output_ids)
