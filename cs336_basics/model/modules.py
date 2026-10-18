@@ -220,6 +220,9 @@ class TransformerLM(nn.Module):
                  device: torch.device | None=None, dtype: torch.dtype | None=None):
         super().__init__()
 
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+
         self.input_embeddings = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=device, dtype=dtype)
 
         # nn.ModuleList不能直接调用self.transformer_layers(x) 只是个容器
