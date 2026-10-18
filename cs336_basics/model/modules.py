@@ -384,7 +384,7 @@ def load_checkpoint(src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
 
 
 # 解码模型输出
-def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_generated_tokens: int, 
+def decoding(model: TransformerLM, tokenizer:Tokenizer, prompt: str, max_generated_tokens: int, 
              temperature: float, top_p: float, device: str):
     model.eval()
     tokens = tokenizer.encode(prompt)
@@ -393,7 +393,9 @@ def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_gener
     output_ids = []
     with torch.no_grad():
         for _ in range(max_generated_tokens):
-            logits = model(torch.tensor(tokens, dtype=torch.long, device=device))
+            # 模型推理，输入长度超过context_length截断
+            input_ids = torch.tensor(tokens[-model.context_length:], dtype=torch.long, device=device)
+            logits = model(input_ids)
 
             # 取生成的最后一个token
             output_logits: torch.Tensor = logits[-1, :]
@@ -422,7 +424,6 @@ def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_gener
                 break
             output_ids.append(sampled_id)
             tokens.append(sampled_id)
-            if len(tokens)
 
     
     return tokenizer.decode(output_ids)
