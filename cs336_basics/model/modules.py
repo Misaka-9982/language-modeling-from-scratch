@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterable
 from typing import Any
+from BPE_Tokenizer.bpe_tokenizer import Tokenizer
 import math
 import os
 import typing
@@ -378,3 +379,47 @@ def load_checkpoint(src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
     
     return in_dict['iteration']
 
+
+# 解码模型输出
+def decoding(model: torch.nn.Module, tokenizer:Tokenizer, prompt: str, max_generated_tokens: int, 
+             temperature: float, top_p: float, device: str):
+    model.eval()
+    tokens = tokenizer.encode(prompt)
+
+    output_ids = []
+    with torch.no_grad():
+        for _ in range(max_generated_tokens):
+            logits = model(torch.tensor(tokens, dtype=torch.long, device=device))
+
+            # 取生成的最后一个token
+            output_logits: torch.Tensor = logits[-1, :]
+
+            # temperature scaling
+            scaled_prob = softmax(output_logits / temperature, dimension=0)
+
+            # top-p采样
+            sorted_prob, sorted_indices = torch.sort(scaled_prob, descending=True)
+            cum_prob = torch.cumsum(sorted_prob, dim=0)
+            threshold_indice = len(cum_prob[cum_prob < top_p]) + 1  # 按top-p取值到这个下标之前
+            
+            selected_prob = sorted_prob[:threshold_indice]
+            selected_indices = sorted_indices[:threshold_indice]
+            
+            sampled_pos = torch.multinomial(selected_prob, num_samples=1)   # 按概率采样
+            sampled_id = selected_indices[sampled_pos].item()
+
+            if sampled_id == tokenizer.encode('<|endoftext|>'):
+                break
+            output_ids.append(sampled_id)
+            tokens.append(sampled_id)
+
+    
+    return tokenizer.decode(output_ids)
+    
+
+
+
+
+
+
+    
