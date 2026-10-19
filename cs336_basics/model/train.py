@@ -15,21 +15,28 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # model
-    parser.add_argument("--vocab_size", type=int, required=True)
+    parser.add_argument("--vocab_size", type=int, default=10000)
     parser.add_argument("--context_length", type=int, default=256)
     parser.add_argument("--d_model", type=int, default=512)
-    parser.add_argument("--num_layers", type=int, default=8)
-    parser.add_argument("--num_heads", type=int, default=8)
-    parser.add_argument("--d_ff", type=int, default=1344)
+    parser.add_argument("--num_layers", type=int, default=4)
+    parser.add_argument("--num_heads", type=int, default=16)
+    parser.add_argument("--d_ff", type=int, default=1344)  # d_ff=1344大概是d_model=512的8/3倍，且对齐到64的倍数
     parser.add_argument("--rope_theta", type=float, default=10000.0)
     parser.add_argument("--rms_eps", type=float, default=1e-5)
 
     # optimizer
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--lr", type=float, default=1e-3)   # 不使用动态学习率时
     parser.add_argument("--beta1", type=float, default=0.9)
     parser.add_argument("--beta2", type=float, default=0.999)
     parser.add_argument("--eps", type=float, default=1e-8)
     parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--max_l2_norm", type=float, default=1.0)  # 梯度裁剪
+    
+    # 动态学习率配置   ===暂时未开启===
+    parser.add_argument("--lr_max", type=float, default=1e-3)
+    parser.add_argument("--lr_min", type=float, default=1e-4)
+    parser.add_argument("--warm_up_iters", type=int, required=True)
+    parser.add_argument("--final_iters", type=int, required=True)
 
     # data
     parser.add_argument("--train_data", type=str, required=True)
@@ -38,10 +45,10 @@ def parse_args():
     # training
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--checkpoint_dir", type=str, default="./checkpoints")  # 保存目录
+    parser.add_argument("--checkpoint_dir", type=str, default="../checkpoints")  # 保存目录
     parser.add_argument("--resume_checkpoint", type=str, default=None)  # 加载目录
     parser.add_argument("--max_steps", type=int, required=True)
-    parser.add_argument("--eval_interval", type=int, default=100)
+    parser.add_argument("--eval_interval", type=int, default=20)
     parser.add_argument("--save_interval", type=int, default=100)
     parser.add_argument("--run_name", type=str, default="baseline")
 
@@ -83,6 +90,12 @@ def main(args):
     for step in range(start_step, args.max_steps):
         print(f'step: {step + 1}')
 
+        # 带warm-up的余弦退火动态学习率
+        # current_lr = learning_rate_schedule(step, args.lr_max, args.lr_min, 
+                                            # args.warm_up_iters, args.final_iters)
+        # for group in optimizer.param_groups:
+            # group['lr'] = current_lr
+
         # 取训练batch
         train_input, train_target = dataloader(dataset=train_data, batch_size=args.batch_size, context_length=args.context_length, device=args.device)
 
@@ -95,6 +108,9 @@ def main(args):
         optimizer.zero_grad()
 
         loss.backward()
+
+        # 按比例缩放梯度/梯度裁剪(原地操作)
+        gradient_clipping(model.parameters(), args.max_l2_norm)
 
         optimizer.step()
 
