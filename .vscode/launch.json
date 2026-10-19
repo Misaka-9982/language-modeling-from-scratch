@@ -1,0 +1,36 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Training",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "cs336_basics.model.train",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "--train_data", "data/owt_train.npy",
+                "--val_data", "data/owt_valid.npy",
+
+                "--batch_size", "32",
+                "--context_length", "256",
+
+                "--d_model", "512",
+                "--num_heads", "16",
+                "--num_layers", "4",
+                "--d_ff", "1344",
+
+                "--max_steps", "10000",
+                "--lr", "1e-4",
+
+                "--device", "cuda"
+            ]
+        }
+    ]
+}
