@@ -6,7 +6,7 @@ import numpy as np
 import time
 import wandb
 
-from modules import *
+from cs336_basics.model.modules import *
 from tqdm import tqdm
 from pathlib import Path
 
@@ -33,10 +33,10 @@ def parse_args():
     parser.add_argument("--max_l2_norm", type=float, default=1.0)  # 梯度裁剪
     
     # 动态学习率配置   ===暂时未开启===
-    parser.add_argument("--lr_max", type=float, default=1e-3)
-    parser.add_argument("--lr_min", type=float, default=1e-4)
-    parser.add_argument("--warm_up_iters", type=int, required=True)
-    parser.add_argument("--final_iters", type=int, required=True)
+    # parser.add_argument("--lr_max", type=float, default=1e-3)
+    # parser.add_argument("--lr_min", type=float, default=1e-4)
+    # parser.add_argument("--warm_up_iters", type=int, required=True)
+    # parser.add_argument("--final_iters", type=int, required=True)
 
     # data
     parser.add_argument("--train_data", type=str, required=True)
@@ -45,7 +45,7 @@ def parse_args():
     # training
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--checkpoint_dir", type=str, default="../checkpoints")  # 保存目录
+    parser.add_argument("--checkpoint_dir", type=str, default="./checkpoints")  # 保存目录
     parser.add_argument("--resume_checkpoint", type=str, default=None)  # 加载目录
     parser.add_argument("--max_steps", type=int, required=True)
     parser.add_argument("--eval_interval", type=int, default=20)

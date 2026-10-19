@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable
 from typing import Any
-from BPE_Tokenizer.bpe_tokenizer import Tokenizer
+from cs336_basics.BPE_Tokenizer.bpe_tokenizer import Tokenizer
 import math
 import os
 import typing
