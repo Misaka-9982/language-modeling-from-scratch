@@ -87,8 +87,8 @@ class RotaryPositionalEmbedding(nn.Module):
 
         # 预计算旋转矩阵sin和cos缓存
         # 利用广播机制快速生成theta_ik，避免显式的两层循环
-        i = einops.rearrange(torch.arange(max_seq_len), 'max_seq_len -> max_seq_len 1')
-        k = einops.rearrange(torch.arange(d_k // 2), 'd_k -> 1 d_k')
+        i = einops.rearrange(torch.arange(max_seq_len, device=device), 'max_seq_len -> max_seq_len 1')
+        k = einops.rearrange(torch.arange(d_k // 2, device=device), 'd_k -> 1 d_k')
         theta_ik = i / (theta ** ((2 * k) / d_k))   # 利用广播机制
         sin_cached = torch.sin(theta_ik)
         cos_cached = torch.cos(theta_ik)
