@@ -332,12 +332,16 @@ def learning_rate_schedule(iter: int, lr_max: float, lr_min: float, warm_up_iter
     
 
 def gradient_clipping(params, max_l2_norm):
+    # params是迭代器时，第二个循环会出现迭代器耗尽的错误
+    params = list(params)
+
     grad_square_sum = 0
     for p in params:
         if p.grad is None:
             continue
         grad_square_sum += torch.sum(torch.square(p.grad))
     all_l2_norm = math.sqrt(grad_square_sum)
+    print(f'all gradients L2 norm: {all_l2_norm}')
 
     if all_l2_norm >= max_l2_norm:
         # 压缩比例
