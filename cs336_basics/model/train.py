@@ -3,6 +3,8 @@
 import torch
 import argparse
 import numpy as np
+import time
+import wandb
 
 from modules import *
 from tqdm import tqdm
@@ -41,6 +43,7 @@ def parse_args():
     parser.add_argument("--max_steps", type=int, required=True)
     parser.add_argument("--eval_interval", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=100)
+    parser.add_argument("--run_name", type=str, default="baseline")
 
     return parser.parse_args()
     
@@ -72,6 +75,10 @@ def main(args):
         resume_checkpoint_path = Path(args.resume_checkpoint)
         start_step = load_checkpoint(src=resume_checkpoint_path, model=model, optimizer=optimizer)
 
+    # 训练日志记录
+    run = wandb.init(project="cs336", name=args.run_name, config=vars(args))
+    start_time = time.perf_counter()
+
     # 训练循环
     for step in range(start_step, args.max_steps):
         print(f'step: {step + 1}')
@@ -91,6 +98,12 @@ def main(args):
 
         optimizer.step()
 
+        metrics = {
+            "step": step + 1,
+            "wall_time": time.perf_counter() - start_time,
+            "train/loss": loss.item()
+        }
+
         # 计算验证集loss
         if (step + 1) % args.eval_interval == 0:
             # 如果增加了dropout层，eval模式会影响模型行为
@@ -101,6 +114,7 @@ def main(args):
                 val_y = model(val_input)
                 val_loss = cross_entropy_loss(val_y, val_target)
                 print(f'val loss: {val_loss.item()}')
+                metrics["val/loss"] = val_loss.item()
 
             model.train()
 
@@ -108,6 +122,8 @@ def main(args):
         if (step + 1) % args.save_interval == 0:
             save_checkpoint(model, optimizer, iteration=step + 1, 
                             out=checkpoint_dir / f'checkpoint_step_{step + 1}.pt')
+
+        run.log(metrics)
 
     # final checkpoint
     print('===训练结束===')
@@ -120,4 +136,4 @@ def main(args):
 if __name__ == '__main__':
     args = parse_args()
     main(args)
-# load函数  输出loss图 
+# TODO: 输出loss图 最终评估？
