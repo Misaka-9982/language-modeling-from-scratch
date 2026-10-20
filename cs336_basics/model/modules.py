@@ -341,7 +341,7 @@ def gradient_clipping(params, max_l2_norm):
             continue
         grad_square_sum += torch.sum(torch.square(p.grad))
     all_l2_norm = math.sqrt(grad_square_sum)
-    print(f'all gradients L2 norm: {all_l2_norm}')
+    print(f'Before clipping, all gradients L2 norm: {all_l2_norm}')
 
     if all_l2_norm >= max_l2_norm:
         # 压缩比例
