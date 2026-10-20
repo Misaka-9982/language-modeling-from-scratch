@@ -395,6 +395,7 @@ def decoding(model: TransformerLM, tokenizer:Tokenizer, prompt: str, max_generat
     eot_id = tokenizer.encode('<|endoftext|>')[0]
 
     output_ids = []
+    output_ids.extend(tokens)
     with torch.no_grad():
         for _ in range(max_generated_tokens):
             # 模型推理，输入长度超过context_length截断
