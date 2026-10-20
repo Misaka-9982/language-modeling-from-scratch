@@ -15,18 +15,21 @@
                 "PYTHONPATH": "${workspaceFolder}"
             },
             "args": [
-                "--train_data", "data/owt_train.npy",
-                "--val_data", "data/owt_valid.npy",
+                "--run_name", "baseline",
+                "--train_data", "data/tokenized_TinyStoriesV2-GPT4-train.npy",
+                "--val_data", "data/tokenized_TinyStoriesV2-GPT4-valid.npy",
+                "--checkpoint_dir", "/mnt/g/Temp",
 
-                "--batch_size", "32",
+                "--batch_size", "24",
                 "--context_length", "256",
+                "--save_interval", "500",
 
                 "--d_model", "512",
                 "--num_heads", "16",
                 "--num_layers", "4",
                 "--d_ff", "1344",
 
-                "--max_steps", "10000",
+                "--max_steps", "6500",
                 "--lr", "1e-4",
 
                 "--device", "cuda"
