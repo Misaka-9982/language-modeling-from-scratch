@@ -64,7 +64,7 @@ def main(args):
     model = TransformerLM(args.d_model, args.num_heads, args.d_ff, args.rope_theta,
                           args.vocab_size, args.context_length, args.num_layers, args.rms_eps,
                           args.device, dtype=torch.float32)
-    optimizer = AdamW(model.state_dict(), args.lr, (args.beta1, args.beta2), args.eps, args.weight_decay)
+    optimizer = AdamW(model.parameters(), args.lr, (args.beta1, args.beta2), args.eps, args.weight_decay)
 
     # 加载数据集
     # 用memmap的方式加载tokenized数据到虚拟内存，避免一次性加载整个数据集到物理内存
@@ -87,7 +87,7 @@ def main(args):
     start_time = time.perf_counter()
 
     # 训练循环
-    for step in range(start_step, args.max_steps):
+    for step in tqdm(range(start_step, args.max_steps)):
         print(f'step: {step + 1}')
 
         # 带warm-up的余弦退火动态学习率
@@ -152,4 +152,4 @@ def main(args):
 if __name__ == '__main__':
     args = parse_args()
     main(args)
-# TODO: 输出loss图 最终评估？
+    
