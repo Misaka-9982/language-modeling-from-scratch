@@ -352,6 +352,8 @@ def gradient_clipping(params, max_l2_norm):
                 # 原地修改
                 p.grad.mul_(scale)
 
+    return all_l2_norm
+
 # 返回一对Tensors，Tensor.shape=(batch_size, context_length)  device e.g.: 'cpu' or 'cuda:0'
 def dataloader(dataset: np.ndarray, batch_size: int, context_length: int, device: str) -> tuple[torch.Tensor, torch.Tensor]:
     input_batch = torch.empty((batch_size, context_length), dtype=torch.long)  # 会作为embedding的索引，显式用long类型

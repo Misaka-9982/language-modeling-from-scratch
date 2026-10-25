@@ -110,14 +110,16 @@ def main(args):
         loss.backward()
 
         # 按比例缩放梯度/梯度裁剪(原地操作)
-        gradient_clipping(model.parameters(), args.max_l2_norm)
+        grad_norm_before_clip = gradient_clipping(model.parameters(), args.max_l2_norm)
 
         optimizer.step()
 
         metrics = {
             "step": step + 1,
             "wall_time": time.perf_counter() - start_time,
-            "train/loss": loss.item()
+            "train/loss": loss.item(),
+            "grad_l2_norm_before_clip": grad_norm_before_clip,
+            "max_abs_logit": torch.max(torch.abs(y)).item()
         }
 
         # 计算验证集loss
