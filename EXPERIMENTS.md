@@ -201,11 +201,69 @@ RMSNorm 不仅影响模型的最终优化效果，更重要的是显著提升了
 
 ### 实验目的
 
+Transformer Block 中 Normalization 的位置会影响 residual path 上的梯度传播和训练稳定性。本实验比较 Pre-Norm 与 Post-Norm 两种结构，观察 Normalization 位置变化对模型收敛速度、training / validation loss 以及训练稳定性的影响。
+
 ### 实验设置
+
+Baseline 使用 Pre-Norm Transformer，即在 Self-Attention 和 FFN 子层之前进行 RMSNorm：
+
+```text
+x -> RMSNorm -> Attention -> Residual Add
+x -> RMSNorm -> FFN       -> Residual Add
+```
+
+Post-Norm 版本则将 RMSNorm 移到 residual addition 之后：
+
+```text
+x -> Attention -> Residual Add -> RMSNorm
+x -> FFN       -> Residual Add -> RMSNorm
+```
+
+除 Normalization 位置外，其余模型结构和训练配置保持一致。
+
+| Configuration | Normalization |
+|---|---|
+| Baseline | Pre-Norm |
+| Post-Norm | Post-Norm |
 
 ### 实验结果
 
+<p align="center">
+  <img src="./assets/experiments/pre_post_norm_train_loss.png" width="49%">
+  <img src="./assets/experiments/pre_post_norm_val_loss.png" width="49%">
+</p>
+
+<p align="center">
+  <em>Figure 7. lr=1e-3 时，Pre-Norm 和 Post-Norm 的 loss 曲线对比。</em>
+</p>
+
+| Architecture | `last_1000_mean` ↓ | `last_1000_std` ↓ | `last_500_mean` ↓ | `min_loss` ↓ | `step_to_1.8` ↓ | `step_to_2.0` ↓ |
+|---|---:|---:|---:|---:|---:|---:|
+| **Pre-Norm(Baseline)** | **1.69992** | **0.06668** | **1.69742** | **1.54023** | 2820 *(1.77718)* | 1400 *(1.95280)* |
+| Post-Norm | 1.78932 | 0.08252 | 1.77118 | 1.61108 | 2820 *(1.79662)* | 1400 *(1.95099)* |
+
+从整体训练过程来看，两种结构均能够完成训练，但 Post-Norm 的 loss 曲线波动更加明显，尤其在训练后期表现出更强的不稳定性。
+
+相比之下，Pre-Norm 的 training loss 下降过程更平滑，validation loss 也表现出更稳定的收敛趋势。Post-Norm 虽然能够达到相近的 loss 区间，但后期波动较大，最终 validation 表现略逊于 Pre-Norm。
+
+### 结果分析
+
+从训练早期来看，Pre-Norm 与 Post-Norm 的差异并不明显。两者首次达到 validation loss 2.0 和 1.8 的 step 完全一致，分别为 1400 和 2820。由于 validation 每 20 steps 进行一次评估，因此该指标本身具有一定离散性；同时，单次 validation loss 也会受到随机 batch 波动影响，因此相同的 threshold crossing step 并不意味着两种结构的整体收敛轨迹完全相同。
+
+从完整 validation loss 曲线可以看到，两种结构在前期的下降速度基本处于同一水平，但随着训练进行，Post-Norm 的波动逐渐更加明显。相比之下，Pre-Norm 在后期表现出更平滑的收敛趋势。
+
+这一差异也体现在后期统计指标上：Pre-Norm 的 `last_1000_mean` 为 **1.69992**，明显低于 Post-Norm 的 **1.78932**；同时 `last_1000_std` 由 0.08252 降至 **0.06668**。此外，Pre-Norm 的 `last_500_mean` 和 `min_loss` 也均优于 Post-Norm。
+
+因此，本实验中两种结构的主要差异并不在 early convergence speed，而在于 **late-stage optimization stability 与最终收敛质量**。Pre-Norm 在当前训练配置下表现出更稳定、更充分的后期优化。
+
 ### 结论
+
+在当前模型规模和训练配置下，Pre-Norm 相比 Post-Norm 表现出更好的训练稳定性：
+
+- Pre-Norm 的 loss 曲线整体更加平滑；
+- Post-Norm 在训练后期出现更明显的波动；
+- Post-Norm 的最终 validation 表现略逊于 Pre-Norm；
+- 两种结构都能够完成训练，但 Pre-Norm 对当前优化配置更加稳定。
 
 ## 4. RoPE Ablation
 
