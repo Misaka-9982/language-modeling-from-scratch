@@ -331,11 +331,60 @@ RoPE 直接作用于 Attention 中的 Query 和 Key，使 attention score 能够
 
 ### 实验目的
 
+SwiGLU 是当前许多现代 Transformer 中常见的 FFN 结构，通过额外的 gating branch 对中间特征进行逐元素调制。本实验将 Baseline 中的 SwiGLU 替换为普通 SiLU FFN，比较 gating mechanism 对模型收敛速度、最终 loss 和训练稳定性的影响。
+
 ### 实验设置
+
+Baseline 使用 SwiGLU FFN，配置为 `d_model=512, d_ff=1344`；消融版本移除 gating branch，改为普通 SiLU FFN，并将 `d_ff` 调整为 `2048 (= 4 × d_model)`。
+
+这样设置的目的是尽量保持两种 FFN 结构的参数量接近。SwiGLU 包含三个 Linear projection，而普通 SiLU FFN 仅包含两个；如果直接使用相同的 `d_ff`，SiLU 版本的 FFN 参数量会明显更小，从而将 gating mechanism 与 model capacity 的影响混在一起。
+
+在当前配置下：
+
+- SwiGLU FFN 参数量约为 `3 × 512 × 1344 ≈ 2.06M`
+- SiLU FFN 参数量约为 `2 × 512 × 2048 ≈ 2.10M`
+
+因此，该实验主要比较 **gated FFN 与普通 activation FFN 的结构差异**，同时尽量控制 FFN parameter count。
+
+| Configuration | FFN | `d_ff` |
+|---|---|---:|
+| Baseline | SwiGLU | 1344 |
+| Ablation | SiLU | 2048 |
 
 ### 实验结果
 
+<p align="center">
+  <img src="./assets/experiments/silu_train_loss.png" width="49%">
+  <img src="./assets/experiments/silu_val_loss.png" width="49%">
+</p>
+
+<p align="center">
+  <em>Figure 9. lr=1e-3 时，SwiGLU 和 SiLU 的 loss 曲线对比。</em>
+</p>
+
+| Experiment | `last_1000_mean` ↓ | `last_1000_std` ↓ | `last_500_mean` ↓ | `min_loss` ↓ | `step_to_2.0` ↓ | `step_to_1.8` ↓ |
+|---|---:|---:|---:|---:|---:|---:|
+| **SwiGLU** | **1.69992** | 0.06668 | **1.69742** | **1.54023** | **1400** | 2820 |
+| SiLU | 1.71971 | **0.06301** | 1.70694 | 1.59884 | 1540 | **2580** |
+
+### 结果分析
+
+相比前面的 RMSNorm、Post-Norm 和 RoPE 消融实验，SwiGLU 与 SiLU 的差异相对较小，两种 FFN 结构都能够稳定完成训练，并达到相近的 loss 区间。
+
+从最终收敛结果来看，SwiGLU 整体略优。其 `last_1000_mean`、`last_500_mean` 和 `min_loss` 均低于 SiLU，说明在当前 training budget 下，gated FFN 能够带来一定的最终性能提升。
+
+不过，两种结构在收敛速度和训练稳定性上的差异并不完全一致。SwiGLU 更早达到 validation loss 2.0，而 SiLU 更早达到 1.8；同时 SiLU 的 `last_1000_std` 略低于 SwiGLU。这说明两者在 early-stage optimization 上差距有限，且单个 threshold crossing 指标容易受到 validation 评估粒度和随机波动影响。
+
+综合后期平均 loss 与 minimum loss，SwiGLU 在当前配置下表现出小幅但稳定的最终性能优势，但这一收益明显弱于 RoPE 或 RMSNorm 等组件带来的影响。
+
 ### 结论
+
+本实验表明，SwiGLU 相比普通 SiLU FFN 能够带来一定的性能提升，但影响幅度相对有限：
+
+- SwiGLU 的后期平均 loss 和 minimum loss 更低；
+- 两者整体收敛速度接近，threshold crossing 结果存在交叉；
+- SiLU 的后期 loss 波动略小，但最终收敛水平略逊于 SwiGLU；
+- 相比位置编码或 Normalization，FFN gating 对当前模型的影响更温和，其收益更适合描述为 incremental improvement，而非决定性的架构差异。
 
 ## Summary
 
