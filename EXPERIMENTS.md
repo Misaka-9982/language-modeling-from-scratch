@@ -248,13 +248,15 @@ x -> FFN       -> Residual Add -> RMSNorm
 
 ### 结果分析
 
-从训练早期来看，Pre-Norm 与 Post-Norm 的差异并不明显。两者首次达到 validation loss 2.0 和 1.8 的 step 完全一致，分别为 1400 和 2820。由于 validation 每 20 steps 进行一次评估，因此该指标本身具有一定离散性；同时，单次 validation loss 也会受到随机 batch 波动影响，因此相同的 threshold crossing step 并不意味着两种结构的整体收敛轨迹完全相同。
+从 early-stage convergence 来看，Pre-Norm 与 Post-Norm 的差异并不明显。两者首次达到 validation loss 2.0 和 1.8 的 step 完全一致，分别为 1400 和 2820。由于 validation 每 20 steps 进行一次评估，因此该指标本身具有一定离散性；同时，单次 validation loss 也会受到随机 batch 波动影响，因此相同的 threshold crossing step 并不意味着两种结构的整体收敛轨迹完全相同。
 
 从完整 validation loss 曲线可以看到，两种结构在前期的下降速度基本处于同一水平，但随着训练进行，Post-Norm 的波动逐渐更加明显。相比之下，Pre-Norm 在后期表现出更平滑的收敛趋势。
 
 这一差异也体现在后期统计指标上：Pre-Norm 的 `last_1000_mean` 为 **1.69992**，明显低于 Post-Norm 的 **1.78932**；同时 `last_1000_std` 由 0.08252 降至 **0.06668**。此外，Pre-Norm 的 `last_500_mean` 和 `min_loss` 也均优于 Post-Norm。
 
 因此，本实验中两种结构的主要差异并不在 early convergence speed，而在于 **late-stage optimization stability 与最终收敛质量**。Pre-Norm 在当前训练配置下表现出更稳定、更充分的后期优化。
+
+Pre-Norm 将 Normalization 放置在 Attention 和 FFN 之前，使 residual path 能够保持一条相对直接的梯度传播路径。相比之下，Post-Norm 在每次 residual addition 后再进行 Normalization，使梯度传播需要持续经过 Normalization 操作，在当前模型与训练配置下表现出更强的优化敏感性。
 
 ### 结论
 
@@ -269,11 +271,61 @@ x -> FFN       -> Residual Add -> RMSNorm
 
 ### 实验目的
 
+RoPE（Rotary Positional Embedding）用于向 Attention 中注入相对位置信息，使模型能够区分不同 token 之间的顺序关系。本实验通过移除 RoPE，观察位置编码缺失对模型收敛速度、training / validation loss 以及最终性能的影响。
+
 ### 实验设置
+
+Baseline 模型在 Multi-Head Self-Attention 中对 Query 和 Key 应用 RoPE；消融版本则完全移除 RoPE，其余模型结构和训练配置保持一致。
+
+| Configuration | Positional Encoding |
+|---|---|
+| Baseline | RoPE |
+| No RoPE | None |
 
 ### 实验结果
 
+<p align="center">
+  <img src="./assets/experiments/rope_train_loss.png" width="49%">
+  <img src="./assets/experiments/rope_val_loss.png" width="49%">
+</p>
+
+<p align="center">
+  <em>Figure 8. lr=1e-3 时，RoPE 和 NoPE 的 loss 曲线对比。</em>
+</p>
+
+| Experiment | `last_1000_mean` ↓ | `last_1000_std` ↓ | `last_500_mean` ↓ | `min_loss` ↓ | `step_to_2.0` ↓ | `step_to_1.8` ↓ |
+|---|---:|---:|---:|---:|---:|---:|
+| **RoPE** | **1.699924** | **0.066685** | **1.697416** | **1.540232** | **1400** | **2820** |
+| NoPE | 1.845865 | 0.076453 | 1.823082 | 1.663968 | 2400 | 3660 |
+
+从训练过程可以观察到，移除 RoPE 后模型仍能够正常训练，但收敛速度明显降低，同时最终 training / validation loss 也高于 Baseline。
+
+这说明在当前 autoregressive language modeling 任务中，缺少显式位置编码会显著削弱模型建模 token 顺序与相对位置关系的能力。
+
+### 结果分析
+
+RoPE 与 NoPE 的差异在本实验中较为明显，并且体现在收敛速度、最终 loss 和后期训练稳定性等多个方面。
+
+首先，从 early-stage convergence 来看，使用 RoPE 的模型明显更快。RoPE 配置在 1400 steps 时首次达到 validation loss 2.0，而 NoPE 需要 2400 steps；达到 1.8 的时间分别为 2820 和 3660 steps。这说明显式位置编码显著提高了模型在固定 training budget 下的优化效率。
+
+其次，RoPE 的最终收敛质量也明显更好。其 last_1000_mean 为 1.699924，相比 NoPE 的 1.845865 更低；last_500_mean 和 min_loss 也分别达到 1.697416 和 1.540232，均明显优于 NoPE。
+
+此外，RoPE 的 last_1000_std 也更低，表明其后期训练过程更加稳定。
+
+整体来看，RoPE 并非只改善某一个训练阶段，而是在 收敛速度、最终性能和后期稳定性 上均表现出一致优势。这说明在当前 autoregressive language modeling 任务中，显式的位置编码对于模型有效利用 token 顺序和相对位置信息至关重要。
+
+RoPE 直接作用于 Attention 中的 Query 和 Key，使 attention score 能够感知 token 之间的相对位置。移除 RoPE 后，模型仍然可以依赖 token content 本身进行一定程度的语言建模，但 Attention 缺乏明确的位置信息，因此难以充分区分相同 token 在不同序列位置上的作用。
+
 ### 结论
+
+本实验中，RoPE 在所有主要指标上均优于 NoPE：
+
+- 更快达到 validation loss 2.0 和 1.8；
+- 更低的后期平均 loss；
+- 更低的 minimum loss；
+- 更小的后期 loss 波动。
+
+因此，RoPE 对当前 Transformer 的训练效率和最终建模能力具有显著贡献。移除位置编码后，模型虽然仍能完成训练，但优化速度和最终性能均明显下降。
 
 ## 5. SwiGLU vs SiLU
 
