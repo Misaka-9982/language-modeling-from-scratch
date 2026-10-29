@@ -23,7 +23,7 @@
 
 模型主要在 TinyStories 数据集上训练，在单张消费级 GPU 环境下累计处理约 **40M training tokens**，并在此基础上进一步完成 learning rate tuning 与多组架构消融实验。
 
-## 项目亮点
+## 主要工作
 
 - **从零实现完整 Transformer Language Model**：包括 Attention、RoPE、RMSNorm、SwiGLU、Cross-Entropy Loss、AdamW、Gradient Clipping、Checkpointing 与 Decoding 等核心组件。
 - **搭建完整训练流程**：支持 training、validation、checkpoint recovery、experiment logging 与可配置的 hyperparameters。
@@ -75,7 +75,7 @@
 
 - 使用 `np.memmap` / memory-mapped arrays 读取 tokenized dataset
 - 随机采样固定长度 context 构造 training batch
-- Learning Rate Scheduling
+- Learning Rate Scheduling（已实现，主实验中为控制变量未启用）
 - 定期 validation
 - Checkpoint 保存与恢复
 - W&B experiment logging
@@ -174,17 +174,21 @@ Lily and Tom were sad. They looked for the swing, but they could not find it. Th
 ```text
 .
 ├── cs336_basics/
-│   ├── model/              # Transformer、training、decoding 等核心实现
-│   ├── tokenizer/          # BPE tokenizer 与数据预处理
-│   └── ...
-├── data/                   # Tokenized datasets / preprocessing outputs
-├── scripts/                # 实验、训练或辅助脚本
-├── figures/                # Training curves 与实验结果图
+│   ├── BPE_Tokenizer/      # BPE tokenizer 训练、编码与数据 tokenization
+│   ├── model/              # Transformer、training loop 与 text generation
+│   └── pretokenization_example.py
+├── tests/                  # 各核心模块的测试
+├── notes/                  # 资源相关计算与推导笔记
+├── assets/                 # README / experiment figures
+├── .vscode/                # VS Code training / debugging configurations
 ├── EXPERIMENTS.md          # 完整实验设置、结果与分析
+├── pyproject.toml
+├── uv.lock
+├── LICENSE
 └── README.md
 ```
 
-核心实现主要位于 `cs336_basics/` 下，包括 tokenizer、Transformer architecture、optimizer、training loop 与 decoding 等模块；实验结果与详细分析集中记录在 [`EXPERIMENTS.md`](./EXPERIMENTS.md) 中。
+核心模型与训练代码位于 `cs336_basics/model/`，BPE tokenizer 相关实现位于 `cs336_basics/BPE_Tokenizer/`；测试代码集中在 `tests/`，完整实验记录与分析见 [`EXPERIMENTS.md`](./EXPERIMENTS.md)。
 
 ## Usage
 
@@ -196,26 +200,48 @@ Lily and Tom were sad. They looked for the swing, but they could not find it. Th
 uv sync
 ```
 
-### 2. 准备数据
+### 2. 准备 Tokenizer 与数据
 
-完成 BPE tokenizer 训练后，将 TinyStories 数据预处理为 tokenized dataset。
+BPE tokenizer 的训练与 dataset tokenization 分别实现在：
 
-```bash
-uv run python <tokenizer_or_preprocessing_script>.py
+```text
+cs336_basics/BPE_Tokenizer/bpe_trainer.py
+cs336_basics/BPE_Tokenizer/bpe_tokenizer.py
 ```
 
-具体数据路径与 tokenizer 配置可根据本地环境进行调整。
+当前数据路径与 tokenizer 文件路径直接在脚本中配置。准备 TinyStories 原始数据后，根据本地数据路径修改对应配置并运行脚本，即可生成 tokenizer vocabulary / merges 以及 tokenized `.npy` 数据。
 
 ### 3. 训练模型
 
+训练入口为 `cs336_basics.model.train`，模型结构、optimizer、训练数据路径与主要 training hyperparameters 均可通过 CLI 参数配置。
+
+例如：
+
 ```bash
 uv run python -m cs336_basics.model.train \
-    --train_data <train_data_path> \
-    --val_data <val_data_path> \
-    [other arguments...]
+    --train_data <train_data.npy> \
+    --val_data <val_data.npy> \
+    --batch_size 24 \
+    --max_steps 6500 \
+    --lr 1e-3 \
+    --run_name baseline
 ```
 
-训练脚本支持 validation、checkpoint 保存与恢复、experiment logging，以及 learning rate 等主要超参数配置。
+模型结构参数具有默认配置，也可以通过 `--d_model`、`--num_layers`、`--num_heads`、`--d_ff` 等参数进行调整。
+
+训练过程支持：
+
+- periodic validation
+- W&B experiment logging
+- Gradient Clipping
+- checkpoint saving
+- checkpoint recovery
+
+使用已有 checkpoint 恢复训练时，可额外指定：
+
+```bash
+--resume_checkpoint <checkpoint_path>
+```
 
 ### 4. 文本生成
 
@@ -223,11 +249,14 @@ uv run python -m cs336_basics.model.train \
 
 ```bash
 uv run python -m cs336_basics.model.infer \
-    --checkpoint <checkpoint_path> \
-    [other arguments...]
+    --prompt "Once upon a time" \
+    --max_generated_tokens 200 \
+    --temperature 0.5 \
+    --top_p 0.8 \
+    --resume_checkpoint <checkpoint_path>
 ```
 
-推理阶段支持 temperature、top-p 等 decoding 参数。
+推理脚本支持 temperature 与 top-p sampling，并可通过 CLI 调整生成长度及模型配置。
 
 ## Acknowledgements
 
