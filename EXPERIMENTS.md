@@ -388,11 +388,23 @@ Baseline 使用 SwiGLU FFN，配置为 `d_model=512, d_ff=1344`；消融版本�
 
 ## Summary
 
-| Experiment | Variant | Main Finding |
+| Experiment | Comparison | Main Finding |
 |---|---|---|
-| Learning Rate | 多组 LR 对比 | 待整理 |
-| RMSNorm | Remove RMSNorm | 待整理 |
-| Gradient Clipping | Disable Clipping | 待整理 |
-| Normalization | Pre-Norm vs Post-Norm | 待整理 |
-| Positional Encoding | Remove RoPE | 待整理 |
-| FFN | SwiGLU vs SiLU | 待整理 |
+| Learning Rate | `1e-4 ~ 3e-3` | `1e-3` 最终收敛最佳；`7e-4` early convergence 最快 |
+| RMSNorm | RMSNorm vs No RMSNorm | 移除 RMSNorm 显著降低训练稳定性，并缩小可稳定训练的 LR 范围 |
+| Gradient Clipping | Clipping vs No Clipping under No RMSNorm | Clipping 改善优化稳定性，并阻止最终 catastrophic divergence |
+| Normalization Position | Pre-Norm vs Post-Norm | early convergence 接近，但 Pre-Norm 后期更稳定、最终 loss 更低 |
+| Positional Encoding | RoPE vs NoPE | RoPE 在收敛速度、最终 loss 和稳定性上均明显更优 |
+| FFN | SwiGLU vs SiLU | SwiGLU 有小幅最终性能优势，但差异远小于 RoPE / RMSNorm |
+
+### Key Findings
+
+- **Training stability 与 architecture / optimization hyperparameters 高度耦合。** 移除 RMSNorm 后，模型对 Learning Rate 明显更加敏感，可稳定训练的优化范围缩小；而 Gradient Clipping 能够限制异常大的参数更新，并在不稳定配置下提供重要的 safety margin。
+
+- **RoPE 是本组 architecture ablation 中影响最明显的组件之一。** 在当前 autoregressive language modeling 任务中，RoPE 同时改善了 convergence speed、final loss 和 late-stage stability，说明显式位置信息对模型有效建模 token 顺序关系具有重要作用。
+
+- **Pre-Norm 的主要优势体现在 late-stage optimization，而不是 early convergence speed。** Pre-Norm 与 Post-Norm 在训练前期的下降速度接近，但 Pre-Norm 在后期表现出更低的平均 loss 和更小的波动，整体优化过程更加稳定。
+
+- **SwiGLU 相比 parameter-matched SiLU FFN 带来小幅但稳定的最终性能收益。** 两种结构均能够稳定训练，说明 gating mechanism 在当前规模下属于 incremental improvement，其影响明显弱于 Normalization 和 positional encoding。
+
+- **当前模型与 training budget 下存在较明确的 Learning Rate sweet spot。** `lr=7e-4` 表现出最快的 early convergence，而 `lr=1e-3` 获得最佳 final convergence；当模型结构稳定性下降时，更小的 Learning Rate 能够显著提高训练鲁棒性。
